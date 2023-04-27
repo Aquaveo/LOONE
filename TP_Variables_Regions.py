@@ -83,7 +83,7 @@ class TP_Variables:
     # v_settle = 0.03024 #0.004 #(m/day)#0.12732776837140575 #(m/month) 
     
     # Read Calibration Outputs
-    Cal_Res = pd.read_csv('C:/Work/Research/LOONE/Model To be Published/LOONE_Model/Data/nondominated_Sol_var.csv')
+    Cal_Res = pd.read_csv('./Data/nondominated_Sol_var.csv')
     Par = Cal_Res['Par']
     v_diff_M = Par[0]
     v_diff_S = Par[1]
