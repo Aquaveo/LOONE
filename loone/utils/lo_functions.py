@@ -671,7 +671,25 @@ def Outlet2DSRS(
     elif (release_level + 2) == 8:
         S = s80_reg_rel_rates_zone_a
     return S
-
+def Outlet_Rel_Sim(Release_Level,Release_Rate_L,Release_Rate_M,Release_Rate_H):
+        S = 0
+        if (Release_Level + 2) ==1:
+            S = 0
+        elif (Release_Level + 2) ==2:
+            S = 0
+        elif (Release_Level + 2) ==3:
+            S = Release_Rate_L
+        elif (Release_Level + 2) ==4:
+            S = Release_Rate_L
+        elif (Release_Level + 2) ==5:
+            S = Release_Rate_L
+        elif (Release_Level + 2) ==6:
+            S = Release_Rate_M
+        elif (Release_Level + 2) ==7:
+            S = Release_Rate_M
+        elif (Release_Level + 2) ==8:
+            S = Release_Rate_H
+        return(S)
 
 def Outlet_Rel_Sim(release_level, relase_rate_l, release_rate_m, release_rate_h):
     """
