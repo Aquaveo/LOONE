@@ -1,5 +1,7 @@
 # LOONE
-The Lake Operation Optimization of Nutrient Exports (LOONE) is a comprehensive water balance-nutrient-optimization model that comprises three coupled modules: A water balance module that simulates the water balance and operations of a reservoir, a nutrient module that simulates nutrient (phosphorus) dynamics in the water column, and an optimization engine that optimizes a reservoir’s releases into its distributaries with the objective of nutrient export minimization and/or water deficit minimization. Python 3 was chosen to develop the code because of its many high-quality libraries and a powerful community support. 
+The Lake Operation Optimization of Nutrient Exports (LOONE) is a comprehensive water balance-nutrient-optimization model that comprises three coupled modules: A water balance module that simulates the water balance and operations of a reservoir, a nutrient module that simulates nutrient (phosphorus) dynamics in the water column, and an optimization engine that optimizes a reservoir’s releases into its distributaries with the objective of nutrient export minimization and/or water deficit minimization. Python 3 was chosen to develop the code because of its many high-quality libraries and a powerful community support.
+
+This is a cool change.
 
 ## Installation
 ```bash
