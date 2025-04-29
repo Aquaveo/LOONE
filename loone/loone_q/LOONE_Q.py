@@ -586,7 +586,7 @@ def _calculate_outlet2dsrs(
                 if model_variables.PlsDay[i + 2] - 1 >= 0
                 else len(data.Pulses) - 1
             ),
-            f'S-80_L1_{config["schedule"]}',
+            'S-80_L1',
         ],
         model_variables.Outlet2DS_Mult_2[i + 2],
         data.CE_SLE_turns.at[
@@ -601,7 +601,7 @@ def _calculate_outlet2dsrs(
                 if model_variables.PlsDay[i + 2] - 1 >= 0
                 else len(data.Pulses) - 1
             ),
-            f'S-80_L2_{config["schedule"]}',
+            'S-80_L2',
         ],
         data.S80_RegRelRates.at[0, "Zone_D3"],
         s80avg_l3,
@@ -611,7 +611,7 @@ def _calculate_outlet2dsrs(
                 if model_variables.PlsDay[i + 2] - 1 >= 0
                 else len(data.Pulses) - 1
             ),
-            f'S-80_L3_{config["schedule"]}',
+            'S-80_L3',
         ],
         data.S80_RegRelRates.at[0, "Zone_C"],
         data.S80_RegRelRates.at[0, "Zone_B"],
@@ -900,7 +900,7 @@ def _calculate_outlet1usrs(
                 if model_variables.PlsDay[i + 2] - 1 >= 0
                 else len(data.Pulses) - 1
             ),
-            f'S-77_L1_{config["schedule"]}',
+            'S-77_L1',
         ],
         model_variables.Outlet1US_Mult_2[i + 2],
         lo_model.at[i + 2, "C43RO"],
@@ -916,7 +916,7 @@ def _calculate_outlet1usrs(
                 if model_variables.PlsDay[i + 2] - 1 >= 0
                 else len(data.Pulses) - 1
             ),
-            f'S-77_L2_{config["schedule"]}',
+            'S-77_L2',
         ],
         model_variables.Zone_Code[i + 1],
         data.S77_RegRelRates.at[0, "Zone_D3"],
@@ -927,7 +927,7 @@ def _calculate_outlet1usrs(
                 if model_variables.PlsDay[i + 2] - 1 >= 0
                 else len(data.Pulses) - 1
             ),
-            f'S-77_L3_{config["schedule"]}',
+            'S-77_L3',
         ],
         data.S77_RegRelRates.at[0, "Zone_C"],
         data.S77_RegRelRates.at[0, "Zone_B"],
@@ -1911,12 +1911,12 @@ def _calculate_pulse_averages(data: object, config: dict) -> dict:
         dict: A dictionary containing the pulse averages for S-80 and S-77.
     """
     pulse_averages = {
-        "s80avg_l1": data.Pulses[f"S-80_L1_{config['schedule']}"].mean(),
-        "s80avg_l2": data.Pulses[f"S-80_L2_{config['schedule']}"].mean(),
-        "s80avg_l3": data.Pulses[f"S-80_L3_{config['schedule']}"].mean(),
-        "s77avg_l1": data.Pulses[f"S-77_L1_{config['schedule']}"].mean(),
-        "s77avg_l2": data.Pulses[f"S-77_L2_{config['schedule']}"].mean(),
-        "s77avg_l3": data.Pulses[f"S-77_L3_{config['schedule']}"].mean(),
+        "s80avg_l1": data.Pulses["S-80_L1"].mean(),
+        "s80avg_l2": data.Pulses["S-80_L2"].mean(),
+        "s80avg_l3": data.Pulses["S-80_L3"].mean(),
+        "s77avg_l1": data.Pulses["S-77_L1"].mean(),
+        "s77avg_l2": data.Pulses["S-77_L2"].mean(),
+        "s77avg_l3": data.Pulses["S-77_L3"].mean(),
     }
     return pulse_averages
 

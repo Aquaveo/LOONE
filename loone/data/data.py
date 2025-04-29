@@ -6,7 +6,7 @@ from loone.utils import load_config
 class Data:
     """A class that represents the data used for running LOONE."""
 
-    def __init__(self, working_path: str):
+    def __init__(self, working_path: str, forecast: bool = False) -> None:
         """
         Initializes the Data object.
 
@@ -18,9 +18,9 @@ class Data:
         self.data_dir = working_path
 
         # Read the data from the configuration
-        self.read_data(config)
+        self.read_data(config, forecast)
 
-    def read_data(self, config: dict) -> None:
+    def read_data(self, config: dict, forecast=False) -> None:
         """
         Reads all the data from the configuration files.
 
@@ -33,6 +33,8 @@ class Data:
         self.WSMs_RSBKs = self._read_csv(config, "wsms_rsbps")
         self.Weekly_dmd = self._read_csv(config, "losa_wkly_dmd")
         self.Wkly_Trib_Cond = self._read_csv(config, "trib_cond_wkly_data")
+        if forecast:
+            self.Wkly_Trib_Cond_predicted = self._read_csv(config, "trib_cond_predicted")
         self.LONINO_Seas_data = self._read_csv(config, "seasonal_lonino")
         self.LONINO_Mult_Seas_data = self._read_csv(
             config, "multi_seasonal_lonino"
@@ -81,4 +83,7 @@ class Data:
             pd.DataFrame: The loaded DataFrame.
         """
         file_path = os.path.join(self.data_dir, config[key])
-        return pd.read_csv(file_path, **kwargs)
+        try:
+            return pd.read_csv(file_path, **kwargs)
+        except FileNotFoundError:
+            return None

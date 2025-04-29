@@ -27,7 +27,7 @@ def Trib_HC(workspace: str, forecast: bool = False):
     """
     os.chdir(workspace)
     config = load_config(workspace)
-    Data = DClass(workspace)
+    Data = DClass(workspace, forecast)
     M_var = MVarClass(config, forecast)
     # Generate weekly time step date column where frequency is 'W-Fri' to start on 01/01/2008.
     # FIXME: Always check here for start date, end date, and frequency to match with the Trib. Condition weekly data obtained.
@@ -53,18 +53,24 @@ def Trib_HC(workspace: str, forecast: bool = False):
         M_var.RF_Cls[i] = lonino_functions.RF_Cls(Data.Wkly_Trib_Cond["NetRF"].iloc[i])
         if forecast:
             M_var.MainTrib_Cls[i] = lonino_functions.MainTrib_Cls(
-                Data.Wkly_Trib_Cond["flow_avg_m^3/d_S65E"].iloc[i]
+                Data.Wkly_Trib_Cond_predicted["flow_avg_m^3/d_S65E"].iloc[i]
+            )
+            M_var.Palmer_Cls[i] = lonino_functions.Palmer_Cls(
+                Data.Wkly_Trib_Cond_predicted["Palmer"].iloc[i]
+            )
+            M_var.NetInflow_Cls[i] = lonino_functions.NetInflow_Cls(
+                Data.Wkly_Trib_Cond_predicted["NetInf"].iloc[i]
             )
         else:
             M_var.MainTrib_Cls[i] = lonino_functions.MainTrib_Cls(
                 Data.Wkly_Trib_Cond["S65E"].iloc[i]
             )
-        M_var.Palmer_Cls[i] = lonino_functions.Palmer_Cls(
-            Data.Wkly_Trib_Cond["Palmer"].iloc[i]
-        )
-        M_var.NetInflow_Cls[i] = lonino_functions.NetInflow_Cls(
-            Data.Wkly_Trib_Cond["NetInf"].iloc[i]
-        )
+            M_var.Palmer_Cls[i] = lonino_functions.Palmer_Cls(
+                Data.Wkly_Trib_Cond["Palmer"].iloc[i]
+            )
+            M_var.NetInflow_Cls[i] = lonino_functions.NetInflow_Cls(
+                Data.Wkly_Trib_Cond["NetInf"].iloc[i]
+            )
         M_var.Max_RF_MainTrib[i] = max(M_var.RF_Cls[i], M_var.MainTrib_Cls[i])
         M_var.Max_Palmer_NetInf[i] = max(M_var.Palmer_Cls[i], M_var.NetInflow_Cls[i])
     if config["tci"] == 1:  # Tributary Condition Index
