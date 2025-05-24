@@ -36,19 +36,30 @@ def WCA_Stages_Cls(workspace: str, TC_LONINO_df: pd.DataFrame | None, forecast: 
     daily_date_range = pd.date_range(start=startdate, end=enddate, freq="D")
 
     # Read the WCA Stage data
-    WCA_Stages = pd.read_csv(os.path.join(workspace, config["wca_stages_inputs"]))
+    if forecast:
+        WCA_Stages = pd.read_csv(os.path.join(workspace, "WCA_Stages_Inputs_Predicted.csv"))
+    else:
+        WCA_Stages = pd.read_csv(os.path.join(workspace, config["wca_stages_inputs"]))
     WCA_Stages.columns = WCA_Stages.columns.str.strip()
     # Read WCA3A_REG inputs
     # Note that I added a date column in the first column and I copied values of Feb28 to the Feb29!
     WCA3A_REG = pd.read_csv(os.path.join(workspace, "WCA3A_REG_Inputs.csv"))
 
-    # generate WCA Stage dataframe
-    WCA_Stages_df = pd.DataFrame(daily_date_range, columns=["Date"])
-    WCA_Stages_df["3A-NW"] = WCA_Stages["3A-NW"]
-    WCA_Stages_df["2A-17"] = WCA_Stages["2A-17"]
-    WCA_Stages_df["3A-3"] = WCA_Stages["3A-3"]
-    WCA_Stages_df["3A-4"] = WCA_Stages["3A-4"]
-    WCA_Stages_df["3A-28"] = WCA_Stages["3A-28"]
+    # Ensure 'date' column in WCA_Stages is in datetime format and trimmed
+    WCA_Stages.columns = WCA_Stages.columns.str.strip()
+    WCA_Stages["date"] = pd.to_datetime(WCA_Stages["date"])
+
+    # Ensure daily_date_range is also in datetime format (if not already)
+    daily_date_range = pd.to_datetime(daily_date_range)
+
+    # Create WCA Stage dataframe using merge to align dates properly
+    WCA_Stages_df = pd.DataFrame({"Date": daily_date_range})
+    WCA_Stages_df = WCA_Stages_df.merge(WCA_Stages, left_on="Date", right_on="date", how="left")
+
+    # Optional: drop the redundant 'date' column after merge
+    WCA_Stages_df.drop(columns=["date"], inplace=True)
+
+    # Select and compute necessary columns
     WCA_Stages_df["3gage Avg"] = (
         WCA_Stages_df["3A-3"] + WCA_Stages_df["3A-4"] + WCA_Stages_df["3A-28"]
     ) / 3

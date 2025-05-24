@@ -112,7 +112,7 @@ def _update_nitro_model_output(nitro_model_output: pd.DataFrame, NO_N: pd.Series
     return nitro_model_output, nitro_mod_out_m
 
 
-def _load_data(workspace: str, flow_path: str, forecast_mode: bool, photo_period_filename: str, config: dict) -> dict:
+def _load_data(workspace: str, flow_path: str, forecast_mode: bool, photo_period_filename: str, config: dict, ensemble_member: int = None) -> dict:
     """
     Load the necessary data files from the workspace.
 
@@ -122,19 +122,31 @@ def _load_data(workspace: str, flow_path: str, forecast_mode: bool, photo_period
         forecast_mode (bool): Whether to use forecast mode.
         photo_period_filename (str): The filename for the photo period data.
         config (dict): The configuration dictionary that holds the contents of config.yaml.
+        ensemble_member (int): The ensemble member number.
 
     Returns:
         dict: A dictionary containing the loaded data.
     """
     data = {}
     data['inflows'] = pd.read_csv(os.path.join(workspace, flow_path))
-    data['temperature_data'] = pd.read_csv(os.path.join(workspace, 'Filled_WaterT.csv'))
-    data['dissolved_oxygen'] = pd.read_csv(os.path.join(workspace, 'LO_DO_Clean_daily.csv'))
-    data['radiation_data'] = pd.read_csv(os.path.join(workspace, 'LO_RADT_data.csv'))
-    data['storage_data'] = pd.read_csv(os.path.join(workspace, config['sto_stage']))
-    data['chlorophyll_a_north_data'] = pd.read_csv(os.path.join(workspace, 'N_Merged_Chla.csv'))  # microgram/L
-    data['chlorophyll_a_south_data'] = pd.read_csv(os.path.join(workspace, 'S_Merged_Chla.csv'))  # microgram/L
-    data['external_nitrate_loadings'] = pd.read_csv(os.path.join(workspace, 'LO_External_Loadings_NO.csv'))  # mg
+
+    if forecast_mode:
+        data['temperature_data'] = pd.read_csv(os.path.join(workspace, 'Filled_WaterT_predicted.csv'))
+        #TODO: Predict this
+        data['dissolved_oxygen'] = pd.read_csv(os.path.join(workspace, 'LO_DO_Clean_daily.csv'))
+        data['radiation_data'] = pd.read_csv(os.path.join(workspace, 'LO_RADT_data.csv'))
+        data['storage_data'] = pd.read_csv(os.path.join(workspace, f'Average_LO_Storage_3MLag_{ensemble_member:02d}.csv'))
+        data['chlorophyll_a_north_data'] = pd.read_csv(os.path.join(workspace, 'N_Merged_Chla.csv'))  # microgram/L
+        data['chlorophyll_a_south_data'] = pd.read_csv(os.path.join(workspace, 'S_Merged_Chla.csv'))  # microgram/L
+        data['external_nitrate_loadings'] = pd.read_csv(os.path.join(workspace, 'LO_External_Loadings_NO.csv'))
+    else:
+        data['temperature_data'] = pd.read_csv(os.path.join(workspace, 'Filled_WaterT.csv'))
+        data['dissolved_oxygen'] = pd.read_csv(os.path.join(workspace, 'LO_DO_Clean_daily.csv'))
+        data['radiation_data'] = pd.read_csv(os.path.join(workspace, 'LO_RADT_data.csv'))
+        data['storage_data'] = pd.read_csv(os.path.join(workspace, config['sto_stage']))
+        data['chlorophyll_a_north_data'] = pd.read_csv(os.path.join(workspace, 'N_Merged_Chla.csv'))  # microgram/L
+        data['chlorophyll_a_south_data'] = pd.read_csv(os.path.join(workspace, 'S_Merged_Chla.csv'))  # microgram/L
+        data['external_nitrate_loadings'] = pd.read_csv(os.path.join(workspace, 'LO_External_Loadings_NO.csv'))  # mg
 
     s65e_basename = 'water_quality_S65E_NITRATE+NITRITE-N_Interpolated_forecast.csv' if forecast_mode else 'water_quality_S65E_NITRATE+NITRITE-N_Interpolated.csv'
     data['s65e_nitrate_data'] = pd.read_csv(os.path.join(workspace, s65e_basename))  # mg/m3
@@ -719,13 +731,14 @@ def _calculate_chla_loads(i: int, Sim_Chla_S: list, s77_outflow: list, s308_outf
     return Chla_Load_Cal, Chla_Load_StL, Chla_Load_South
 
 
-def LOONE_WQ(workspace: str, photo_period_filename: str = 'PhotoPeriod', forecast_mode: bool = False) -> list:
+def LOONE_WQ(workspace: str, photo_period_filename: str = 'PhotoPeriod', forecast_mode: bool = False, ensemble_number: int = None) -> list:
     """Daily Nitrate-Nitrite NOx and Chlorophyll-a Modeling
 
     Args:
         workspace (str): The working directory path.
         photo_period_filename (str): The filename of the photo period data. Default is 'PhotoPeriod'.
         forecast_mode (bool): The forecast mode flag.
+        ensemble (int): The ensemble number for forecast mode.
 
     Returns:
         list: The results of the simulation.
@@ -734,15 +747,12 @@ def LOONE_WQ(workspace: str, photo_period_filename: str = 'PhotoPeriod', forecas
     config = load_config(workspace)
 
     # Initialize the Data object
-    data = DClass(workspace)
+    data = DClass(workspace, forecast_mode, ensemble_number)
 
     # Read Required Data
-    if forecast_mode:
-        flow_path = os.path.join(workspace, 'LO_Inflows_BK_forecast.csv')
-    else:
-        flow_path = os.path.join(workspace, config['lo_inflows_bk'])
+    flow_path = os.path.join(workspace, f'LO_Inflows_BK_forecast_{ensemble_number:02}.csv' if forecast_mode else 'LO_Inflows_BK.csv')
 
-    data_dict = _load_data(workspace, flow_path, forecast_mode, photo_period_filename, config)
+    data_dict = _load_data(workspace, flow_path, forecast_mode, photo_period_filename, config, ensemble_number)
 
     inflows = data_dict['inflows']
     temperature_data = data_dict['temperature_data']
@@ -767,18 +777,18 @@ def LOONE_WQ(workspace: str, photo_period_filename: str = 'PhotoPeriod', forecas
 
     temperature = temperature_data['Water_T'].astype(float)
     dissolved_oxygen = dissolved_oxygen['Mean_DO'].astype(float)
-    external_nitrite_nitrate = external_nitrate_loadings['External_NO_Ld_mg'].astype(float)  # mg
-    s65e_nitrite_nitrate = (s65e_nitrate_data[s65e_nitrate_data['date'] >= date_start]['Data'] * 1000).astype(float).tolist()  # mg/m3
+    # external_nitrite_nitrate = external_nitrate_loadings['External_NO_Ld_mg'].astype(float)  # mg
+    # s65e_nitrite_nitrate = (s65e_nitrate_data[s65e_nitrate_data['date'] >= date_start]['Data'] * 1000).astype(float).tolist()  # mg/m3
 
-    external_chlorophyll_a = chlorophyll_a_loads_in['Chla_Loads'].astype(float) * 3  # mg
-    s65e_chlorophyll_a = s65e_chlorophyll_a_data[s65e_chlorophyll_a_data['date'] >= date_start]['Data'].astype(float).tolist()
+    # external_chlorophyll_a = chlorophyll_a_loads_in['Chla_Loads'].astype(float) * 3  # mg
+    # s65e_chlorophyll_a = s65e_chlorophyll_a_data[s65e_chlorophyll_a_data['date'] >= date_start]['Data'].astype(float).tolist()
 
     # N-S Procedure
     N_Per = 0.43
     S_Per = 0.57
 
     storage_dev = data.Storage_dev_df['DS_dev'].astype(float)  # acft
-    q_i = inflows['Inflows_cmd'].astype(float)  # m3
+    # q_i = inflows['Inflows_cmd'].astype(float)  # m3
 
     # Simulated Q
     # S77_Q = LOONE_Q_Outputs['S77_Q'] * 0.0283168 * 86400  # cfs to cubic meters per day
@@ -791,6 +801,7 @@ def LOONE_WQ(workspace: str, photo_period_filename: str = 'PhotoPeriod', forecas
     # volume = LOONE_Q_Outputs['Storage'] * 1233.48  # acft to m3
 
     # Observed S77 S308 South
+    # TODO: This should have ensembles
     outflows_observed = pd.read_csv(os.path.join(workspace, config['outflows_observed']))
     s77_outflow = outflows_observed['S77_Out']
     s308_outflow = outflows_observed['S308_Out']
@@ -803,8 +814,9 @@ def LOONE_WQ(workspace: str, photo_period_filename: str = 'PhotoPeriod', forecas
     volume_north = volume * N_Per
     volume_south = volume * S_Per
 
-    q_o = s77_outflow + s308_outflow + total_regional_outflow_south * 1233.48  # cmd
+    # q_o = s77_outflow + s308_outflow + total_regional_outflow_south * 1233.48  # cmd
 
+    #TODO: This is reading in mostly just historical values
     observed_values = _calculate_observed_values(lo_dissolved_inorganic_nitrogen_north_data, lo_dissolved_inorganic_nitrogen_south_data, chlorophyll_a_north_data, chlorophyll_a_south_data, lo_orthophosphate_north_data, lo_orthophosphate_south_data)
 
     ammonium_north_observed = observed_values['ammonium_north']
@@ -1032,7 +1044,42 @@ def LOONE_WQ(workspace: str, photo_period_filename: str = 'PhotoPeriod', forecas
     nitro_model_output = pd.DataFrame(inflows['date'], columns=['date'])
     nitro_model_output['date'] = pd.to_datetime(nitro_model_output['date'])
     print("LOONE Nitrogen Module is Running!")
-    for i in range(X - 1):
+    # Filter all datasets by date_start
+    datasets = [s65e_nitrate_data, s65e_chlorophyll_a_data, chlorophyll_a_loads_in, inflows, outflows_observed, external_nitrate_loadings]
+    for df in datasets:
+        df.drop(df[df['date'] < date_start].index, inplace=True)
+
+    # Merge all data on date - this ensures that the dates will line up
+    merged = inflows[['date', 'Inflows_cmd']].merge(
+        chlorophyll_a_loads_in[['date', 'Chla_Loads']], on='date'
+    ).merge(
+        s65e_chlorophyll_a_data[['date', 'Data']], on='date', suffixes=('', '_s65e_chla')
+    ).merge(
+        s65e_nitrate_data[['date', 'Data']], on='date', suffixes=('', '_s65e_nitrate')
+    ).merge(
+        outflows_observed[['date', 'S77_Out', 'S308_Out', 'S351_Out', 'S354_Out', 'S352_Out', 'L8_Out']], on='date'
+    ).merge(
+        external_nitrate_loadings[['date', 'External_NO_Ld_mg']], on='date'
+    )
+
+    # Rename for clarity
+    merged.rename(columns={
+        'Data': 'S65E_Chla',
+        'Data_s65e_nitrate': 'S65E_NO'
+    }, inplace=True)
+
+    # Compute q_o (outflows in m³/day)
+    merged['total_regional_outflow_south'] = merged[['S351_Out', 'S354_Out', 'S352_Out', 'L8_Out']].sum(axis=1) / 1233.48
+    merged['q_o'] = merged['S77_Out'] + merged['S308_Out'] + merged['total_regional_outflow_south'] * 1233.48
+
+    # Prepare input lists
+    q_i = merged['Inflows_cmd'].astype(float).tolist()
+    q_o = merged['q_o'].astype(float).tolist()
+    s65e_nitrite_nitrate = (merged['S65E_NO'] * 1000).astype(float).tolist()
+    s65e_chlorophyll_a = merged['S65E_Chla'].astype(float).tolist()
+    external_chlorophyll_a = (merged['Chla_Loads'].astype(float) * 3).tolist()
+    external_nitrite_nitrate = merged['External_NO_Ld_mg'].astype(float).tolist()
+    for i in range(len(merged.index) - 1):
         # print(Nitro_Model_Output['date'].iloc[i])
 
         Q_I_M[i], Q_O_M[i], External_NO_M[i], External_Chla_M[i] = _calculate_inflows_and_outflows(i, storage_dev,
@@ -1104,6 +1151,7 @@ def LOONE_WQ(workspace: str, photo_period_filename: str = 'PhotoPeriod', forecas
         }
         return_list = list(variables_dict.values())
 
+        #TODO: Will this end up having ensembles after we have the forecast data reading in correctly?
         for k, v in variables_dict.items():
             file_name = f'{k}_forecast' if forecast_mode else k
             v.to_csv(os.path.join(workspace, f'{file_name}.csv'), index=False)
