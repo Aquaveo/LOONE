@@ -750,7 +750,7 @@ def LOONE_WQ(workspace: str, photo_period_filename: str = 'PhotoPeriod', forecas
     data = DClass(workspace, forecast_mode, ensemble_number)
 
     # Read Required Data
-    flow_path = os.path.join(workspace, f'LO_Inflows_BK_forecast_{ensemble_number:02}.csv' if forecast_mode else 'LO_Inflows_BK.csv')
+    flow_path = os.path.join(workspace, f'LO_Inflows_BK_forecast_{ensemble_number:02}.csv' if forecast_mode else config['lo_inflows_bk'])
 
     data_dict = _load_data(workspace, flow_path, forecast_mode, photo_period_filename, config, ensemble_number)
 
