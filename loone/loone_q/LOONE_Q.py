@@ -721,6 +721,7 @@ def _calculate_outlet2usrg_code(
     tp_lake_s: float,
     lo_model: pd.DataFrame,
     date_range_one_day: pd.date_range,
+    sensitivity_analysis_params: List[float],
 ) -> None:
     """
     Calculate the Outlet2USRG code for the given index.
@@ -736,6 +737,7 @@ def _calculate_outlet2usrg_code(
         s308_dv (float): The S308 DV value.
         tp_lake_s (float): The TP lake S value.
         date_range_one_day (pd.date_range): The date range.
+        sensitivity_analysis_params (list): Holds a release rate for each month of the year. Entries 0-11 are for Outlet1USREG, entries 12-23 are for Outlet2USRG.
 
     Returns:
         None
@@ -781,52 +783,52 @@ def _calculate_outlet2usrg_code(
             model_variables.Outlet2USRG[i + 2] = 0
         elif lo_model.at[i + 2, "date"].month == 1:
             model_variables.Outlet2USRG[i + 2] = lo_functions.Outlet_Rel_Sim(
-                model_variables.Release_Level[i + 2], sensitivity_analysis_params[0]
+                model_variables.Release_Level[i + 2], sensitivity_analysis_params[12]
             )
         elif lo_model.at[i + 2, "date"].month == 2:
             model_variables.Outlet2USRG[i + 2] = lo_functions.Outlet_Rel_Sim(
-                model_variables.Release_Level[i + 2], sensitivity_analysis_params[1]
+                model_variables.Release_Level[i + 2], sensitivity_analysis_params[13]
             )
         elif lo_model.at[i + 2, "date"].month == 3:
             model_variables.Outlet2USRG[i + 2] = lo_functions.Outlet_Rel_Sim(
-                model_variables.Release_Level[i + 2], sensitivity_analysis_params[2]
+                model_variables.Release_Level[i + 2], sensitivity_analysis_params[14]
             )
         elif lo_model.at[i + 2, "date"].month == 4:
             model_variables.Outlet2USRG[i + 2] = lo_functions.Outlet_Rel_Sim(
-                model_variables.Release_Level[i + 2], sensitivity_analysis_params[3]
+                model_variables.Release_Level[i + 2], sensitivity_analysis_params[15]
             )
         elif lo_model.at[i + 2, "date"].month == 5:
             model_variables.Outlet2USRG[i + 2] = lo_functions.Outlet_Rel_Sim(
-                model_variables.Release_Level[i + 2], sensitivity_analysis_params[4]
+                model_variables.Release_Level[i + 2], sensitivity_analysis_params[16]
             )
         elif lo_model.at[i + 2, "date"].month == 6:
             model_variables.Outlet2USRG[i + 2] = lo_functions.Outlet_Rel_Sim(
-                model_variables.Release_Level[i + 2], sensitivity_analysis_params[5]
+                model_variables.Release_Level[i + 2], sensitivity_analysis_params[17]
             )
 
         elif lo_model.at[i + 2, "date"].month == 7:
             model_variables.Outlet2USRG[i + 2] = lo_functions.Outlet_Rel_Sim(
-                model_variables.Release_Level[i + 2], sensitivity_analysis_params[6]
+                model_variables.Release_Level[i + 2], sensitivity_analysis_params[18]
             )
         elif lo_model.at[i + 2, "date"].month == 8:
             model_variables.Outlet2USRG[i + 2] = lo_functions.Outlet_Rel_Sim(
-                model_variables.Release_Level[i + 2], sensitivity_analysis_params[7]
+                model_variables.Release_Level[i + 2], sensitivity_analysis_params[19]
             )
         elif lo_model.at[i + 2, "date"].month == 9:
             model_variables.Outlet2USRG[i + 2] = lo_functions.Outlet_Rel_Sim(
-                model_variables.Release_Level[i + 2], sensitivity_analysis_params[8]
+                model_variables.Release_Level[i + 2], sensitivity_analysis_params[20]
             )
         elif lo_model.at[i + 2, "date"].month == 10:
             model_variables.Outlet2USRG[i + 2] = lo_functions.Outlet_Rel_Sim(
-                model_variables.Release_Level[i + 2], sensitivity_analysis_params[9]
+                model_variables.Release_Level[i + 2], sensitivity_analysis_params[21]
             )
         elif lo_model.at[i + 2, "date"].month == 11:
             model_variables.Outlet2USRG[i + 2] = lo_functions.Outlet_Rel_Sim(
-                model_variables.Release_Level[i + 2], sensitivity_analysis_params[10]
+                model_variables.Release_Level[i + 2], sensitivity_analysis_params[22]
             )
         elif lo_model.at[i + 2, "date"].month == 12:
             model_variables.Outlet2USRG[i + 2] = lo_functions.Outlet_Rel_Sim(
-                model_variables.Release_Level[i + 2], sensitivity_analysis_params[11]
+                model_variables.Release_Level[i + 2], sensitivity_analysis_params[23]
             )
 
 def _calculate_outlet2ds(
@@ -1272,7 +1274,7 @@ def _calculate_outlet1usreg(
         tp_lake_s (float): The tp_lake_s value.
         date_range_one_day (pd.DatetimeIndex): The date range.
         lo_model (pd.DataFrame): The model DataFrame.
-        sensitivity_analysis_params (list): Holds a release rate for each month of the year.
+        sensitivity_analysis_params (list): Holds a release rate for each month of the year. Entries 0-11 are for Outlet1USREG, entries 12-23 are for Outlet2USRG.
 
     Returns:
         None
@@ -1311,51 +1313,51 @@ def _calculate_outlet1usreg(
             model_variables.Outlet1USREG[i + 2] = 0
         elif lo_model.at[i + 2, "date"].month == 1:
             model_variables.Outlet1USREG[i + 2] = lo_functions.Outlet_Rel_Sim(
-                model_variables.Release_Level[i + 2], sensitivity_analysis_params[12]
+                model_variables.Release_Level[i + 2], sensitivity_analysis_params[0]
             )
         elif lo_model.at[i + 2, "date"].month == 2:
             model_variables.Outlet1USREG[i + 2] = lo_functions.Outlet_Rel_Sim(
-                model_variables.Release_Level[i + 2], sensitivity_analysis_params[13]
+                model_variables.Release_Level[i + 2], sensitivity_analysis_params[1]
             )
         elif lo_model.at[i + 2, "date"].month == 3:
             model_variables.Outlet1USREG[i + 2] = lo_functions.Outlet_Rel_Sim(
-                model_variables.Release_Level[i + 2], sensitivity_analysis_params[14]
+                model_variables.Release_Level[i + 2], sensitivity_analysis_params[2]
             )
         elif lo_model.at[i + 2, "date"].month == 4:
             model_variables.Outlet1USREG[i + 2] = lo_functions.Outlet_Rel_Sim(
-                model_variables.Release_Level[i + 2], sensitivity_analysis_params[15]
+                model_variables.Release_Level[i + 2], sensitivity_analysis_params[3]
             )
         elif lo_model.at[i + 2, "date"].month == 5:
             model_variables.Outlet1USREG[i + 2] = lo_functions.Outlet_Rel_Sim(
-                model_variables.Release_Level[i + 2], sensitivity_analysis_params[16]
+                model_variables.Release_Level[i + 2], sensitivity_analysis_params[4]
             )
         elif lo_model.at[i + 2, "date"].month == 6:
             model_variables.Outlet1USREG[i + 2] = lo_functions.Outlet_Rel_Sim(
-                model_variables.Release_Level[i + 2], sensitivity_analysis_params[17]
+                model_variables.Release_Level[i + 2], sensitivity_analysis_params[5]
             )
         elif lo_model.at[i + 2, "date"].month == 7:
             model_variables.Outlet1USREG[i + 2] = lo_functions.Outlet_Rel_Sim(
-                model_variables.Release_Level[i + 2], sensitivity_analysis_params[18]
+                model_variables.Release_Level[i + 2], sensitivity_analysis_params[6]
             )
         elif lo_model.at[i + 2, "date"].month == 8:
             model_variables.Outlet1USREG[i + 2] = lo_functions.Outlet_Rel_Sim(
-                model_variables.Release_Level[i + 2], sensitivity_analysis_params[19]
+                model_variables.Release_Level[i + 2], sensitivity_analysis_params[7]
             )
         elif lo_model.at[i + 2, "date"].month == 9:
             model_variables.Outlet1USREG[i + 2] = lo_functions.Outlet_Rel_Sim(
-                model_variables.Release_Level[i + 2], sensitivity_analysis_params[20]
+                model_variables.Release_Level[i + 2], sensitivity_analysis_params[8]
             )
         elif lo_model.at[i + 2, "date"].month == 10:
             model_variables.Outlet1USREG[i + 2] = lo_functions.Outlet_Rel_Sim(
-                model_variables.Release_Level[i + 2], sensitivity_analysis_params[21]
+                model_variables.Release_Level[i + 2], sensitivity_analysis_params[9]
             )
         elif lo_model.at[i + 2, "date"].month == 11:
             model_variables.Outlet1USREG[i + 2] = lo_functions.Outlet_Rel_Sim(
-                model_variables.Release_Level[i + 2], sensitivity_analysis_params[22]
+                model_variables.Release_Level[i + 2], sensitivity_analysis_params[10]
             )
         elif lo_model.at[i + 2, "date"].month == 12:
             model_variables.Outlet1USREG[i + 2] = lo_functions.Outlet_Rel_Sim(
-                model_variables.Release_Level[i + 2], sensitivity_analysis_params[23]
+                model_variables.Release_Level[i + 2], sensitivity_analysis_params[11]
             )
 
 
@@ -2253,6 +2255,7 @@ def LOONE_Q(
             tp_lake_s,
             lo_model,
             date_range_one_day,
+            sensitivity_analysis_params,
         )
         _calculate_outlet2ds(i, model_variables, lo_functions, data, config)
         _calculate_relevel_code_3_s77(i, model_variables, lo_functions, config)
