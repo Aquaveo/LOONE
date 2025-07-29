@@ -107,7 +107,6 @@ def LOONE_NUT(
         storage = sto_stage["Storage_acft"].values
         storage_dev = Data.Storage_dev_df["DS_dev"]
         start_storage = stg_sto_ar.stg2sto(config["start_stage"], 0) 
-        stage_2_ar[1] = stg_sto_ar.stg2ar(stage_lo[1], 0)
         storage[0] = start_storage  # ac-ft
         storage[1] = stg_sto_ar.stg2sto(stage_lo[1], 0)  # ac-ft
     n_rows = len(q_in.index)
