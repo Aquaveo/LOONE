@@ -57,6 +57,8 @@ class Data:
             self.SFWMM_W_dmd = pd.read_csv(
                 os.path.join(self.data_dir, "Water_dmd_forecast.csv")
             )
+            self.RF_Vol = pd.read_csv(os.path.join(self.data_dir, "RFVol_Forecast.csv"))
+            self.ET_Vol = pd.read_csv(os.path.join(self.data_dir, "ETVol_forecast.csv"))
         else:
             self.SFWMM_Daily_Outputs = self._read_csv(
                 config, "sfwmm_daily_outputs"
@@ -77,8 +79,8 @@ class Data:
                 config, "estuary_needs_water_input"
             )
             self.EAA_MIA_RUNOFF = self._read_csv(config, "eaa_mia_ro_inputs")
-        self.RF_Vol = self._read_csv(config, "rf_vol")
-        self.ET_Vol = self._read_csv(config, "et_vol")
+            self.RF_Vol = self._read_csv(config, "rf_vol")
+            self.ET_Vol = self._read_csv(config, "et_vol")
         self.SLTRIB = self._read_csv(config, "sltrib_monthly")
         self.S80_RegRelRates = self._read_csv(
             config, "s80_regulatory_release_rates"
