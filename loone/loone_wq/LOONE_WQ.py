@@ -744,7 +744,7 @@ def _calculate_nitrogen_oxide(i: int, loone_nchla_fns: object, temperature: list
         None
     """
     fT_NO = loone_nchla_fns.f_T_alt1(temperature[i], T_opt_NO, T_min_NO, T_max_NO)
-    fL_NO = loone_nchla_fns.f_L_alt1(photo_period['Data'].iloc[i], rad[i], Kw_NO, Kc_NO, Sim_Chla[i], z[i],
+    fL_NO = loone_nchla_fns.f_L_alt1(photo_period['photoperiod'].iloc[i], rad[i], Kw_NO, Kc_NO, Sim_Chla[i], z[i],
                                      K1_NO, K2_NO)
 
     DfEq_Res_N = odeint(loone_nchla_fns.NOx_N_DiffEq, NO_N[i], t,
@@ -829,7 +829,7 @@ def _calculate_chlorophyll_a(i: int, loone_nchla_fns: object, temperature: list,
         None
     """
     fT_Chla = loone_nchla_fns.f_T__Chla_alt1(temperature[i], T_opt_Chla, T_min_Chla, T_max_Chla, nitro_model_output['date'].iloc[i].month)
-    fL_Chla = loone_nchla_fns.f_L_alt1(photo_period['Data'].iloc[i], rad[i], Kw_Chla, Kc_Chla, Sim_Chla[i], z[i], K1_Chla, K2_Chla) * 1.2 if nitro_model_output['date'].iloc[i].month in (6, 7, 8, 9, 10) else loone_nchla_fns.f_L_alt1(photo_period['Data'].iloc[i], rad[i], Kw_Chla, Kc_Chla, Sim_Chla[i], z[i], K1_Chla, K2_Chla) * 1
+    fL_Chla = loone_nchla_fns.f_L_alt1(photo_period['photoperiod'].iloc[i], rad[i], Kw_Chla, Kc_Chla, Sim_Chla[i], z[i], K1_Chla, K2_Chla) * 1.2 if nitro_model_output['date'].iloc[i].month in (6, 7, 8, 9, 10) else loone_nchla_fns.f_L_alt1(photo_period['photoperiod'].iloc[i], rad[i], Kw_Chla, Kc_Chla, Sim_Chla[i], z[i], K1_Chla, K2_Chla) * 1
 
     Sim_Chla_N[i + 1] = loone_nchla_fns.Chla_N_alt1(External_Chla_M[i], Q_N2S[i], Sim_Chla_N[i], vc, z[i], K_m_T[i], K_r_T[i], 0, G_max_Chla, fT_Chla, fL_Chla, f_P_N_Chla[i], f_N_N_Chla[i], volume_north[i])
     Sim_Chla_S[i + 1] = loone_nchla_fns.Chla_S_alt1(Q_N2S[i], Q_O_M[i], Sim_Chla_N[i], Sim_Chla_S[i], vc, z[i], K_m_T[i], K_r_T[i], 0, G_max_Chla, fT_Chla, fL_Chla, f_P_S_Chla[i], f_N_S_Chla[i], volume_south[i])
@@ -961,10 +961,12 @@ def LOONE_WQ(workspace: str, photo_period_filename: str = 'PhotoPeriod', forecas
     combined_df = combined_df.sort_values('date').reset_index(drop=True)
     # Group by day and take daily averages
     combined_df = combined_df.groupby('date', as_index=False).mean(numeric_only=True)
+    combined_df = combined_df.dropna(subset=['temperature']).reset_index(drop=True)
     if not forecast_mode:
         temperature = temperature_data['Water_T'].astype(float)
     else:
         temperature = combined_df['temperature'].astype(float)
+        photo_period = combined_df[['doy', 'photoperiod']].copy()
 
     dissolved_oxygen = dissolved_oxygen['dissolved_oxygen'].astype(float)
     date_start = inflows['date'].iloc[0]
@@ -1278,6 +1280,7 @@ def LOONE_WQ(workspace: str, photo_period_filename: str = 'PhotoPeriod', forecas
     else:
         datasets = [s65e_nitrate_data, s65e_chlorophyll_a_data, chlorophyll_a_loads_in, inflows, external_nitrate_loadings, LOONE_Q_Outputs]
     for df in datasets:
+        df['date'] = pd.to_datetime(df['date'])
         df.drop(df[df['date'] < date_start].index, inplace=True)
 
     # Merge all data on date - this ensures that the dates will line up - TODO - did the early merge already fix this?
@@ -1290,15 +1293,15 @@ def LOONE_WQ(workspace: str, photo_period_filename: str = 'PhotoPeriod', forecas
     ).merge(
         external_nitrate_loadings[['date', 'External_NO_Ld_mg']], on='date'
     )
-    outflows_observed['date'] = pd.to_datetime(outflows_observed['date'])
     if not forecast_mode:
+        
         merged = merged.merge(
             outflows_observed[['date', 'S77_Out', 'S308_Out', 'S351_Out', 'S354_Out', 'S352_Out', 'L8_Out']], on='date'
         )
     else:
         # LOONE_Q_Outputs['date'] = LOONE_Q_Outputs['date'].dt.date
         merged = merged.merge(
-           LOONE_Q_Outputs[['date', 'S77_Q', 'S308_Q', 'TotRegSo']], on='date'
+           combined_df[['date', 'S77_Q', 'S308_Q', 'TotRegSo']], on='date'
         )
 
     # Rename for clarity
