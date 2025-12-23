@@ -1,11 +1,12 @@
 import numpy as np
 import pandas as pd
 from datetime import datetime, timedelta
+from calendar import monthrange
 
 
 class M_var:
     """Class to represents model variables."""
-    def __init__(self, config: dict, forecast: bool = False):
+    def __init__(self, config: dict, forecast: bool = False, start_month: int = None) -> None:
         """
         Initializes the M_var class with model variables.
 
@@ -32,6 +33,14 @@ class M_var:
             enddate = datetime(year, month, day).date()
             year, month, day = map(int, config["end_date_tc"])
             enddate_TC = datetime(year, month, day).date()
+        if config["sim_type"] == 3 and start_month:
+            startdate = datetime(startdate.year, start_month, 1).date()
+            enddate_TC = datetime(
+                startdate.year + 1,
+                start_month-1,
+                monthrange(startdate.year, start_month-1)[1],
+            ).date()
+            enddate = enddate_TC
         
         TC_Count = len(pd.date_range(
             start=startdate, end=enddate_TC, freq="W-Fri"

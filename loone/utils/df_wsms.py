@@ -1,4 +1,5 @@
 # This Script Interpolates each Water Shortage Management (WSMs) and each Regulation Schedule Breakpoint Zone (D, C, B, and A).
+from calendar import monthrange
 import os
 import numpy as np
 import pandas as pd
@@ -8,13 +9,13 @@ from loone.data import Data as DClass
 from loone.utils import load_config
 
 
-def WSMs(workspace: str, forecast: bool = False, ensemble: int = None) -> None:
+def WSMs(workspace: str, forecast: bool = False, ensemble: int = None, month=None) -> None:
     """Generate WSMs (Weather State Modifiers) based on the given workspace."""
 
     os.chdir(workspace)
 
     config = load_config(workspace)
-    data = DClass(workspace, forecast, ensemble)
+    data = DClass(workspace, forecast, ensemble, month)
 
     # --- Date handling ---
     if forecast:
@@ -26,6 +27,14 @@ def WSMs(workspace: str, forecast: bool = False, ensemble: int = None) -> None:
         ey, em, ed = map(int, config["end_date_entry"])
         start_date = datetime(sy, sm, sd).date()
         end_date = datetime(ey, em, ed).date() + timedelta(days=1)
+        
+    if config["sim_type"] == 3 and month:
+        start_date = datetime(start_date.year, month, 1).date()
+        end_date = datetime(
+            start_date.year + 1,
+            month-1,
+            monthrange(start_date.year, month-1)[1],
+        ).date()+ timedelta(days=1)
 
     # Build daily date range
     df_wsms = pd.DataFrame(pd.date_range(start=start_date, end=end_date, freq="D"),

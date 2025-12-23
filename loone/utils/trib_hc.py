@@ -2,6 +2,7 @@ import os
 import pandas as pd
 import numpy as np
 from datetime import datetime, timedelta
+from calendar import monthrange
 from loone.data.model_variables import M_var as MVarClass
 from loone.utils import load_config, lonino_functions
 from loone.data import Data as DClass
@@ -9,7 +10,7 @@ from loone.data import Data as DClass
 
 # I determine daily values for the Tributary conditions and Seasonal/Multi-Seasonal LONINO classes
 # using a weekly Trib. Condition data and Monthly LONINO data.
-def Trib_HC(workspace: str, forecast: bool = False, ensemble: int = None) -> pd.DataFrame:
+def Trib_HC(workspace: str, forecast: bool = False, ensemble: int = None, start_month=None) -> pd.DataFrame:
     """
     This function generates daily values for the Tributary conditions and Seasonal/Multi-Seasonal LONINO classes
     using a weekly Trib. Condition data and Monthly LONINO data.
@@ -27,7 +28,7 @@ def Trib_HC(workspace: str, forecast: bool = False, ensemble: int = None) -> pd.
     """
     os.chdir(workspace)
     config = load_config(workspace)
-    Data = DClass(workspace, forecast, ensemble)
+    Data = DClass(workspace, forecast, ensemble, start_month)
     M_var = MVarClass(config, forecast)
     # Generate weekly time step date column where frequency is 'W-Fri' to start on 01/01/2008.
     # FIXME: Always check here for start date, end date, and frequency to match with the Trib. Condition weekly data obtained.
@@ -43,6 +44,14 @@ def Trib_HC(workspace: str, forecast: bool = False, ensemble: int = None) -> pd.
         enddate = datetime(year, month, day).date()
         year, month, day = map(int, config["end_date_tc"])
         enddate_TC = datetime(year, month, day).date()
+    if config["sim_type"] == 3 and start_month:
+        startdate = datetime(startdate.year, start_month, 1).date()
+        enddate_TC = datetime(
+            startdate.year + 1,
+            start_month-1,
+            monthrange(startdate.year, start_month-1)[1],
+        ).date()
+        enddate = enddate_TC
     # Generate the Tributary Condition Dataframe.
     Trib_Cond_df = pd.DataFrame(
         pd.date_range(start=startdate, end=enddate_TC, freq="W-Fri"), columns=["date"]
@@ -80,12 +89,20 @@ def Trib_HC(workspace: str, forecast: bool = False, ensemble: int = None) -> pd.
     LONINO_Count = len(LONINO_df.index)
     #TODO: Fix this to be forecasted
     for i in range(LONINO_Count):
-        M_var.Seas[i] = Data.LONINO_Seas_data[
-            str(LONINO_df["date"].iloc[i].month)
-        ].iloc[LONINO_df["date"].iloc[i].year - config["start_year"]]
-        M_var.M_Seas[i] = Data.LONINO_Mult_Seas_data[
-            str(LONINO_df["date"].iloc[i].month)
-        ].iloc[LONINO_df["date"].iloc[i].year - config["start_year"]]
+        if start_month and (12 - start_month) < i:
+            M_var.Seas[i] = Data.LONINO_Seas_data[
+                str(LONINO_df["date"].iloc[i].month)
+            ].iloc[LONINO_df["date"].iloc[i].year - config["start_year"] - 1]
+            M_var.M_Seas[i] = Data.LONINO_Mult_Seas_data[
+                str(LONINO_df["date"].iloc[i].month)
+            ].iloc[LONINO_df["date"].iloc[i].year - config["start_year"] - 1] 
+        else:
+            M_var.Seas[i] = Data.LONINO_Seas_data[
+                str(LONINO_df["date"].iloc[i].month)
+            ].iloc[LONINO_df["date"].iloc[i].year - config["start_year"]]
+            M_var.M_Seas[i] = Data.LONINO_Mult_Seas_data[
+                str(LONINO_df["date"].iloc[i].month)
+            ].iloc[LONINO_df["date"].iloc[i].year - config["start_year"]]
     LONINO_df["LONINO_Seas"] = M_var.Seas
     LONINO_df["LONINO_Mult_Seas"] = M_var.M_Seas
     if forecast:
@@ -108,7 +125,7 @@ def Trib_HC(workspace: str, forecast: bool = False, ensemble: int = None) -> pd.
     LONINO_df["LONINO_Mult_Seasonal_Cls"] = M_var.LONINO_M_Seas_cls
     # Generate a daily date range
     date_rng_5 = pd.date_range(start=startdate, end=enddate, freq="D")
-    TC_LONINO_df = pd.DataFrame(date_rng_5, columns=["Date"])
+    TC_LONINO_df = pd.DataFrame(date_rng_5, columns=["date"])
     row_nm = len(TC_LONINO_df.index)
     Trib_Cond = np.zeros(row_nm)
     for i in range(row_nm):

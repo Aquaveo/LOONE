@@ -409,7 +409,6 @@ def LOONE_NUT(
         q_n2s[i] = (q_i_m[i] + q_o_m[i]) / 2
         stage_2_ar[i + 2] = stg_sto_ar.stg2ar(stage_lo[i + 2], 0)
         lo_wd[i] = stage_lo[i] * METERS_IN_FOOT - LO_BL
-        # TODO - are these the right values for volume in the lake
         lake_o_storage_n[i] = (
             storage[i] #reads in acft
             * TP_Variables.northern_percentage

@@ -133,7 +133,6 @@ def _load_data(workspace: str, flow_path: str, forecast_mode: bool, photo_period
 
     if forecast_mode:
         data['temperature_data'] = pd.read_csv(os.path.join(workspace, 'Filled_WaterT_predicted.csv'))
-        #TODO: Predict this
         data['dissolved_oxygen'] = pd.read_csv(os.path.join(workspace, 'LO_DO_Clean_daily_forecast.csv'))
         data['radiation_data'] = pd.read_csv(os.path.join(workspace, 'LO_RADT_data_forecast.csv'))
         data['chlorophyll_a_north_data'] = pd.read_csv(os.path.join(workspace, 'N_Merged_Chla_predicted.csv'))  # microgram/L
@@ -144,7 +143,7 @@ def _load_data(workspace: str, flow_path: str, forecast_mode: bool, photo_period
         data['lo_orthophosphate_south_data'] = pd.read_csv(os.path.join(workspace, 'S_OP_forecast.csv'))  # mg/m3
         data['lo_dissolved_inorganic_nitrogen_north_data'] = pd.read_csv(os.path.join(workspace, 'N_DIN_forecast.csv'))  # mg/m3
         data['lo_dissolved_inorganic_nitrogen_south_data'] = pd.read_csv(os.path.join(workspace, 'S_DIN_forecast.csv'))  # mg/m3
-        data['storage_data'] = pd.read_csv(os.path.join(workspace, config['sto_stage'])) # This won't be used in forecast mode, but needs to be read in to not throw and error
+        data['storage_data'] = pd.read_csv(os.path.join(workspace, config['sto_stage'])) # This won't be used in forecast mode, but needs to be read in to not throw an error
     else:
         data['temperature_data'] = pd.read_csv(os.path.join(workspace, 'Filled_WaterT.csv'))
         data['dissolved_oxygen'] = pd.read_csv(os.path.join(workspace, 'LO_DO_Clean_daily.csv'))
@@ -1393,12 +1392,21 @@ def LOONE_WQ(workspace: str, photo_period_filename: str = 'PhotoPeriod', forecas
             'Constit_Loads_M': constit_loads_m,
             'Nitro_Mod_Out_M': nitro_mod_out_m,
         }
+
         return_list = list(variables_dict.values())
 
-        #TODO: Will this end up having ensembles after we have the forecast data reading in correctly?
+        # TODO: Constit Loads needs ensemble members number
         for k, v in variables_dict.items():
-            file_name = f'{k}_forecast' if forecast_mode else k
-            v.to_csv(os.path.join(workspace, f'{file_name}.csv'), index=False)
+            if forecast_mode and k in {"Constit_Loads", "Constit_Loads_M"}:
+                file_name = f"{k}_forecast_ens{ensemble_number:02}"
+            else:
+                file_name = f"{k}_forecast" if forecast_mode else k
+
+            v.to_csv(
+                os.path.join(workspace, f"{file_name}.csv"),
+                index=False
+            )
+
         return return_list
     else:
         return_list = [Smr_Mnth_NOx_StL_arr, Smr_Mnth_Chla_StL_arr, Smr_Mnth_NOx_Cal_arr, Smr_Mnth_Chla_Cal_arr,
