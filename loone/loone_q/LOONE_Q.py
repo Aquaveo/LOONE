@@ -2250,6 +2250,7 @@ def LOONE_Q(
     ###################################################################
     _calculate_initial_zone_code_and_lo_zone(model_variables, lo_functions, df_WSMs)
     for i in range(n_rows - 2):
+    # for i in daily_date_range:
         _calculate_wsm_zone(i, model_variables, lo_functions, df_WSMs)
         _calculate_max_supply(i, model_variables, lo_functions, water_demand, config)
         _calculate_losa_supply(i, model_variables, lo_functions, lo_model, config)
@@ -2396,7 +2397,7 @@ def LOONE_Q(
         data=model_variables.Outlet1USREG, columns=["Outputs"]
     )
     df_saint_lucie = pd.DataFrame(data=model_variables.Outlet2USRG, columns=["Outputs"])
-    df_south = pd.DataFrame(data=model_variables.TotRegSo / 1.9835, columns=["Outputs"])
+    df_south = pd.DataFrame(data=model_variables.TotRegSo / 1.9835, columns=["Outputs"]) #TODO - why do we divide by 1.9835 here?
     df_out = pd.concat([df_stage, df_caloosahatchee, df_saint_lucie, df_south])
 
     return [lo_model, df_out.T.loc["Outputs"]]

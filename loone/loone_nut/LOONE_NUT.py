@@ -3,10 +3,11 @@ import argparse
 import numpy as np
 import pandas as pd
 from datetime import datetime, timedelta
-from loone.utils import load_config, stg_sto_ar
+from loone.utils import load_config, stg_sto_ar, correct_month
 from loone.utils import tp_mass_balance_functions_regions as TP_MBFR
 from loone.data import Data as DClass
 from loone.data.tp_variables_regions import TP_Variables as TPVarClass
+from calendar import monthrange
 
 
 SECONDS_IN_DAY = 86400
@@ -30,6 +31,7 @@ def LOONE_NUT(
     forecast_mode: bool = False,
     simulation_data: dict = {},
     ensemble: int = None,
+    start_month: int | None = None,
 ) -> pd.DataFrame:
     """Simulates nutrient (phosphorus) dynamics in the water column.
 
@@ -53,7 +55,7 @@ def LOONE_NUT(
 
     if not loone_q_path:
         loone_q_path = os.path.join(workspace, "LOONE_Q_Outputs.csv")
-    Data = DClass(workspace, forecast_mode, ensemble)
+    Data = DClass(workspace, forecast_mode, ensemble, start_month)
     print("LOONE Nut Module is Running!")
 
     # Read in config values
@@ -72,13 +74,24 @@ def LOONE_NUT(
         startdate = datetime(year, month, day).date()
         year, month, day = map(int, config["end_date_entry"])
         enddate = datetime(year, month, day).date()
+    if config["sim_type"] == 3 and start_month:
+        startdate = datetime(startdate.year, start_month, 1).date()
+        enddate = datetime(
+            startdate.year + 1,
+            start_month-1,
+            monthrange(startdate.year, start_month-1)[1],
+        ).date()
 
     date_rng_0 = pd.date_range(start=startdate, end=enddate, freq="D")
     load_ext = pd.read_csv(os.path.join(data_dir, loads_external_filename))
+    if config["sim_type"] == 3 and start_month:
+        load_ext = correct_month(load_ext, start_month)
     if forecast_mode:
         q_in = pd.read_csv(os.path.join(data_dir, f"LO_Inflows_BK_forecast_{ensemble:02}.csv")) #cmd
     else:
         q_in = pd.read_csv(os.path.join(data_dir, config["lo_inflows_bk"]))
+    if config["sim_type"] == 3 and start_month:
+        q_in = correct_month(q_in, start_month)
     flow_df = pd.read_csv(os.path.join(data_dir, flow_df_filename)) #cubic meters per day
     # q_o = flow_df["Outflows"].values #cmd - this is wrong, this should come from LOONE_Q, not from geoglows
     s77_q = loone_q["S77_Q"].values if 's77_q' not in simulation_data else simulation_data['s77_q'] #cfs
@@ -88,6 +101,7 @@ def LOONE_NUT(
         tot_reg_so = simulation_data['tot_reg_so']
     #TODO check with Osama
     else:
+        #TODO - this may need to be divided by 1.9835 to convert to cfs
         tot_reg_so = loone_q["TotRegSo"]
     #New way to calculate q_o  - add s77_q, s308_q, and tot_reg_so - this should be converted to cmd - convert all of them to cmd, then add them together
     q_o = s308_q * CUBIC_METERS_IN_CUBIC_FOOT * SECONDS_IN_DAY + s77_q * CUBIC_METERS_IN_CUBIC_FOOT * SECONDS_IN_DAY + tot_reg_so * CUBIC_METERS_IN_ACRE_FOOT #cmd
@@ -123,11 +137,15 @@ def LOONE_NUT(
         wind_shear_str = pd.read_csv(
             os.path.join(data_dir, config["wind_shear_stress"])
         )
+    if config["sim_type"] == 3 and start_month:
+        wind_shear_str = correct_month(wind_shear_str, start_month)
     w_ss = wind_shear_str["ShearStress"]  # Dyne/cm2
     if forecast_mode:
         nu_ts = pd.read_csv(os.path.join(data_dir, f"nu_predicted.csv"))
     else:
         nu_ts = pd.read_csv(os.path.join(data_dir, config["nu"]))
+    if config["sim_type"] == 3 and start_month:
+        nu_ts = correct_month(nu_ts, start_month)
     LO_BL = 0.5  # m (Bed Elevation of LO)
     g = 9.8  # m/s2 gravitational acceleration
     cal_res = pd.read_csv(os.path.join(data_dir, "nondominated_Sol_var.csv"))

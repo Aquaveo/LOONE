@@ -59,7 +59,6 @@ def WCA_Stages_Cls(workspace: str, TC_LONINO_df: pd.DataFrame | None, forecast: 
     WCA_Stages["date"] = pd.to_datetime(WCA_Stages["date"])
     if config["sim_type"] == 3 and start_month:
         WCA_Stages = correct_month(WCA_Stages, start_month, date_col="date")
-        WCA3A_REG = correct_month(WCA3A_REG, start_month, date_col="Date")
     # Create WCA Stage dataframe using merge to align dates properly
     WCA_Stages_df = pd.DataFrame({"Date": daily_date_range})
     WCA_Stages_df = WCA_Stages_df.merge(WCA_Stages, left_on="Date", right_on="date", how="left")

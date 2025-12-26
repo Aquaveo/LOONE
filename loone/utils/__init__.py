@@ -81,6 +81,8 @@ def correct_month(df, month, date_col="date"):
     
     # Shift years
     df.loc[mask, date_col] += pd.DateOffset(years=1)
+    
+    df = df.drop_duplicates(subset=date_col)
 
     return df.sort_values(date_col).reset_index(drop=True)
 
