@@ -1,12 +1,13 @@
 import os
 import numpy as np
 import pandas as pd
-from datetime import datetime, timedelta
-from loone.utils import load_config, leap_year
+from calendar import monthrange
+from datetime import date, datetime, timedelta
+from loone.utils import load_config, leap_year, correct_month
 
 
 # This following section calculates the parameter states (trib conds, stage tests, seasonal & multi-seasonal LONINO) and sets a 4-digit code for the branch.  The branch code is used with the Routing sheet to determine release rates.
-def WCA_Stages_Cls(workspace: str, TC_LONINO_df: pd.DataFrame | None, forecast: bool = False):
+def WCA_Stages_Cls(workspace: str, TC_LONINO_df: pd.DataFrame | None, forecast: bool = False, start_month=None) -> pd.DataFrame:
     """
     Reads in the WCA Stage data and WCA3A_REG inputs, sets up a daily date range for the simulation period,
     and generates a WCA Stage dataframe. It also generates a daily date range for one year (2020), assigns
@@ -32,8 +33,20 @@ def WCA_Stages_Cls(workspace: str, TC_LONINO_df: pd.DataFrame | None, forecast: 
          startdate = datetime(year, month, day).date()
          year, month, day = map(int, config["end_date_entry"])
          enddate = datetime(year, month, day).date()
+    if config["sim_type"] == 3 and start_month:
+        startdate = date(startdate.year, start_month, 1)
+        if start_month == 1:
+            end_year = startdate.year
+            end_month = 12
+        else:
+            end_year = startdate.year + 1
+            end_month = start_month - 1
+
+        # Last day of the month before start_month
+        enddate = date(end_year, end_month, monthrange(end_year, end_month)[1])
 
     daily_date_range = pd.date_range(start=startdate, end=enddate, freq="D")
+    daily_date_range = pd.to_datetime(daily_date_range)
 
     # Read the WCA Stage data
     if forecast:
@@ -48,10 +61,8 @@ def WCA_Stages_Cls(workspace: str, TC_LONINO_df: pd.DataFrame | None, forecast: 
     # Ensure 'date' column in WCA_Stages is in datetime format and trimmed
     WCA_Stages.columns = WCA_Stages.columns.str.strip()
     WCA_Stages["date"] = pd.to_datetime(WCA_Stages["date"])
-
-    # Ensure daily_date_range is also in datetime format (if not already)
-    daily_date_range = pd.to_datetime(daily_date_range)
-
+    if config["sim_type"] == 3 and start_month:
+        WCA_Stages = correct_month(WCA_Stages, start_month, date_col="date")
     # Create WCA Stage dataframe using merge to align dates properly
     WCA_Stages_df = pd.DataFrame({"Date": daily_date_range})
     WCA_Stages_df = WCA_Stages_df.merge(WCA_Stages, left_on="Date", right_on="date", how="left")

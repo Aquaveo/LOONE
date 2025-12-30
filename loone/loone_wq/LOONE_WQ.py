@@ -6,8 +6,9 @@ import argparse
 import pandas as pd
 import numpy as np
 from scipy.integrate import odeint
-from loone.utils import loone_nchla_fns, load_config
+from loone.utils import loone_nchla_fns, load_config, correct_month_with_padding, correct_month, daily_average_calc
 from loone.data import Data as DClass
+from datetime import datetime
 
 
 def _calculate_summer_month_loads(constit_loads_m: pd.DataFrame) -> tuple:
@@ -112,7 +113,7 @@ def _update_nitro_model_output(nitro_model_output: pd.DataFrame, NO_N: pd.Series
     return nitro_model_output, nitro_mod_out_m
 
 
-def _load_data(workspace: str, flow_path: str, forecast_mode: bool, photo_period_filename: str, config: dict, ensemble_member: int = None) -> dict:
+def _load_data(workspace: str, flow_path: str, forecast_mode: bool, photo_period_filename: str, config: dict, ensemble_member: int = None, start_month: int = None) -> dict:
     """
     Load the necessary data files from the workspace.
 
@@ -132,9 +133,8 @@ def _load_data(workspace: str, flow_path: str, forecast_mode: bool, photo_period
 
     if forecast_mode:
         data['temperature_data'] = pd.read_csv(os.path.join(workspace, 'Filled_WaterT_predicted.csv'))
-        #TODO: Predict this
         data['dissolved_oxygen'] = pd.read_csv(os.path.join(workspace, 'LO_DO_Clean_daily_forecast.csv'))
-        data['radiation_data'] = pd.read_csv(os.path.join(workspace, 'LO_RADT_data.csv'))
+        data['radiation_data'] = pd.read_csv(os.path.join(workspace, 'LO_RADT_data_forecast.csv'))
         data['chlorophyll_a_north_data'] = pd.read_csv(os.path.join(workspace, 'N_Merged_Chla_predicted.csv'))  # microgram/L
         data['chlorophyll_a_south_data'] = pd.read_csv(os.path.join(workspace, 'S_Merged_Chla_predicted.csv'))  # microgram/L
         data['external_nitrate_loadings'] = pd.read_csv(os.path.join(workspace, f'LO_External_Loadings_NO_ens_{ensemble_member:02d}_predicted.csv'))
@@ -143,7 +143,7 @@ def _load_data(workspace: str, flow_path: str, forecast_mode: bool, photo_period
         data['lo_orthophosphate_south_data'] = pd.read_csv(os.path.join(workspace, 'S_OP_forecast.csv'))  # mg/m3
         data['lo_dissolved_inorganic_nitrogen_north_data'] = pd.read_csv(os.path.join(workspace, 'N_DIN_forecast.csv'))  # mg/m3
         data['lo_dissolved_inorganic_nitrogen_south_data'] = pd.read_csv(os.path.join(workspace, 'S_DIN_forecast.csv'))  # mg/m3
-        data['storage_data'] = pd.read_csv(os.path.join(workspace, config['sto_stage'])) # This won't be used in forecast mode, but needs to be read in to not throw and error
+        data['storage_data'] = pd.read_csv(os.path.join(workspace, config['sto_stage'])) # This won't be used in forecast mode, but needs to be read in to not throw an error
     else:
         data['temperature_data'] = pd.read_csv(os.path.join(workspace, 'Filled_WaterT.csv'))
         data['dissolved_oxygen'] = pd.read_csv(os.path.join(workspace, 'LO_DO_Clean_daily.csv'))
@@ -166,8 +166,99 @@ def _load_data(workspace: str, flow_path: str, forecast_mode: bool, photo_period
     data['s65e_chlorophyll_a_data'] = pd.read_csv(os.path.join(workspace, s65e_chlorophyll_a_basename))  # mg/m3
 
     data['photo_period'] = pd.read_csv(os.path.join(workspace, f'{photo_period_filename}.csv'))
+    if config["sim_type"] == 3 and start_month:
+        data['temperature_data'] = daily_average_calc(data['temperature_data'], ["Water_T"])
+        data['temperature_data'] = correct_month(data['temperature_data'], start_month)
+        data['dissolved_oxygen'] = daily_average_calc(data['dissolved_oxygen'], ['Data_L001_DO_Inter', 'Data_L004_DO_Inter',
+                                                                                 'Data_L005_DO_Inter', 'Data_L006_DO_Inter', 'Data_L007_DO_Inter',
+                                                                                 'Data_L008_DO_Inter', 'Data_LZ40_DO_Inter', 'Mean_DO'],)
+        data['dissolved_oxygen'] = correct_month(data['dissolved_oxygen'], start_month)
+        data['radiation_data'] = daily_average_calc(data['radiation_data'], ['L006_RADT_kW/m^2', 'L001_RADT_kW/m^2', 'L005_RADT_kW/m^2',
+                                                                             'LZ40_RADT_kW/m^2', 'Mean_RADT'])
+        data['radiation_data'] = correct_month(data['radiation_data'], start_month)
+        data['chlorophyll_a_north_data'] = daily_average_calc(data['chlorophyll_a_north_data'], ['Chla'])
+        data['chlorophyll_a_north_data'] = correct_month(data['chlorophyll_a_north_data'], start_month)
+        data['chlorophyll_a_south_data'] = daily_average_calc(data['chlorophyll_a_south_data'], ['Chla'])
+        data['chlorophyll_a_south_data'] = correct_month(data['chlorophyll_a_south_data'], start_month)
+        data['external_nitrate_loadings'] = daily_average_calc(data['external_nitrate_loadings'], ['S65_NO_Ld', 'S71_NO_Ld', 'S72_NO_Ld', 'S84_NO_Ld',
+                                                                                                   'S127_NO_Ld', 'S133_NO_Ld', 'S154_NO_Ld', 'S191_NO_Ld', 'S308_NO_Ld',
+                                                                                                   'FISHP_NO_Ld', 'L8_NO_Ld', 'S4_NO_Ld', 'External_NO_Ld_mg'])
+        data['external_nitrate_loadings'] = correct_month(data['external_nitrate_loadings'], start_month)
+        data['chlorophyll_a_loads_in'] = daily_average_calc(data['chlorophyll_a_loads_in'], ['Chla_Loads'])
+        data['chlorophyll_a_loads_in'] = correct_month(data['chlorophyll_a_loads_in'], start_month)
+        data['lo_orthophosphate_north_data'] = daily_average_calc(data['lo_orthophosphate_north_data'], ['OP'])
+        data['lo_orthophosphate_north_data'] = correct_month(data['lo_orthophosphate_north_data'], start_month)
+        data['lo_orthophosphate_south_data'] = daily_average_calc(data['lo_orthophosphate_south_data'], ['OP'])
+        data['lo_orthophosphate_south_data'] = correct_month(data['lo_orthophosphate_south_data'], start_month)
+        data['lo_dissolved_inorganic_nitrogen_north_data'] = daily_average_calc(data['lo_dissolved_inorganic_nitrogen_north_data'], ['DIN', 'NH4', 'NO'])
+        data['lo_dissolved_inorganic_nitrogen_north_data'] = correct_month(data['lo_dissolved_inorganic_nitrogen_north_data'], start_month)
+        data['lo_dissolved_inorganic_nitrogen_south_data'] = daily_average_calc(data['lo_dissolved_inorganic_nitrogen_south_data'], ['DIN', 'NH4', 'NO'])
+        data['lo_dissolved_inorganic_nitrogen_south_data'] = correct_month(data['lo_dissolved_inorganic_nitrogen_south_data'], start_month)
+        data["storage_data"] = correct_month_with_padding(data["storage_data"], start_month)
+        data["inflows"] = correct_month(data["inflows"], start_month)
+        data['s65e_nitrate_data'] = daily_average_calc(data['s65e_nitrate_data'], ['Data'])
+        data['s65e_nitrate_data'] = correct_month(data['s65e_nitrate_data'], start_month)
+        data['s65e_chlorophyll_a_data'] = daily_average_calc(data['s65e_chlorophyll_a_data'], ['Data'])
+        data['s65e_chlorophyll_a_data'] = correct_month(data['s65e_chlorophyll_a_data'], start_month)
+        
+        #TODO - should other files be changed under these conditions? How would we like them to get changed?
 
     return data
+
+def calculate_observed_values_from_combined(combined_df: pd.DataFrame) -> dict:
+    """
+    Calculate observed values from a single combined dataframe that already
+    contains north/south values for DIN, NH4, NO, OP, and Chla.
+
+    Args:
+        combined_df (pd.DataFrame): The combined dataset with all columns.
+
+    Returns:
+        dict: A dictionary with observed values matching the original structure.
+    """
+
+    # Ensure date is datetime
+    df = combined_df.copy()
+    df["date"] = pd.to_datetime(df["date"])
+
+    observed_values = {}
+
+    # Chlorophyll-a
+    observed_values['chlorophyll_a_north'] = df['Chla_north'].astype(float)
+    observed_values['chlorophyll_a_south'] = df['Chla_south'].astype(float)
+    observed_values['chlorophyll_a'] = (
+        df['Chla_north'].astype(float) + df['Chla_south'].astype(float)
+    ) / 2
+
+    # Ammonium (NH4)
+    observed_values['ammonium_north'] = df['NH4_north'].astype(float)
+    observed_values['ammonium_south'] = df['NH4_south'].astype(float)
+    observed_values['ammonium'] = (
+        df['NH4_north'].astype(float) + df['NH4_south'].astype(float)
+    ) / 2
+
+    # Nitrogen Oxide (NO)
+    observed_values['nitrogen_oxide_north'] = df['NO_north'].astype(float)
+    observed_values['nitrogen_oxide_south'] = df['NO_south'].astype(float)
+    observed_values['nitrogen_oxide'] = (
+        df['NO_north'].astype(float) + df['NO_south'].astype(float)
+    ) / 2
+
+    # Dissolved Inorganic Nitrogen (DIN)
+    observed_values['dissolved_inorganic_nitrogen_north'] = df['DIN_north'].astype(float)
+    observed_values['dissolved_inorganic_nitrogen_south'] = df['DIN_south'].astype(float)
+    observed_values['dissolved_inorganic_nitrogen'] = (
+        df['DIN_north'].astype(float) + df['DIN_south'].astype(float)
+    ) / 2
+
+    # Dissolved Inorganic Phosphorus (OP)
+    observed_values['dissolved_inorganic_phosphorus_north'] = df['OP_north'].astype(float)
+    observed_values['dissolved_inorganic_phosphorus_south'] = df['OP_south'].astype(float)
+    observed_values['dissolved_inorganic_phosphorus'] = (
+        df['OP_north'].astype(float) + df['OP_south'].astype(float)
+    ) / 2
+
+    return observed_values
 
 
 def _calculate_observed_values(lo_dissolved_inorganic_nitrogen_north_data: pd.DataFrame,
@@ -190,29 +281,86 @@ def _calculate_observed_values(lo_dissolved_inorganic_nitrogen_north_data: pd.Da
     Returns:
         dict: A dictionary containing the calculated observed values.
     """
+
+    # --- Ensure dates are datetime ---
+    for df in [
+        lo_dissolved_inorganic_nitrogen_north_data,
+        lo_dissolved_inorganic_nitrogen_south_data,
+        lo_orthophosphate_north_data,
+        lo_orthophosphate_south_data
+    ]:
+        df["date"] = pd.to_datetime(df["date"])
+
+    # Chlorophyll-a dates are handled separately
+    chlorophyll_a_north_data["date"] = pd.to_datetime(chlorophyll_a_north_data["date"])
+    chlorophyll_a_south_data["date"] = pd.to_datetime(chlorophyll_a_south_data["date"])
+
+    # ===============================
+    # ALIGN DIN, NH4, NO, OP DATES
+    # ===============================
+
+    din_frames = [
+        lo_dissolved_inorganic_nitrogen_north_data,
+        lo_dissolved_inorganic_din_south := lo_dissolved_inorganic_nitrogen_south_data,
+        lo_orthophosphate_north_data,
+        lo_orthophosphate_south_data
+    ]
+
+    common_dates = set(din_frames[0]["date"])
+    for df in din_frames[1:]:
+        common_dates &= set(df["date"])
+
+    common_dates = sorted(common_dates)
+
+    def filter_df(df):
+        return df[df["date"].isin(common_dates)].sort_values("date")
+
+    din_north = filter_df(lo_dissolved_inorganic_nitrogen_north_data)
+    din_south = filter_df(lo_dissolved_inorganic_nitrogen_south_data)
+    op_north = filter_df(lo_orthophosphate_north_data)
+    op_south = filter_df(lo_orthophosphate_south_data)
+
+    # We only use the initial value for chlorophyl, so we don't need to fully align dates here
+    chla_common_dates = sorted(
+        set(chlorophyll_a_north_data["date"]) &
+        set(chlorophyll_a_south_data["date"])
+    )
+
+    def filter_chla(df):
+        return df[df["date"].isin(chla_common_dates)].sort_values("date")
+
+    chla_north = filter_chla(chlorophyll_a_north_data)
+    chla_south = filter_chla(chlorophyll_a_south_data)
+
     observed_values = {}
 
-    observed_values['ammonium_north'] = lo_dissolved_inorganic_nitrogen_north_data['NH4'].astype(float)
-    observed_values['ammonium_south'] = lo_dissolved_inorganic_nitrogen_south_data['NH4'].astype(float)
-    observed_values['ammonium'] = (observed_values['ammonium_north'] + observed_values['ammonium_south']) / 2
+    # Ammonium
+    observed_values['ammonium_north'] = din_north['NH4'].astype(float)
+    observed_values['ammonium_south'] = din_south['NH4'].astype(float)
+    observed_values['ammonium'] = (din_north['NH4'] + din_south['NH4']) / 2
 
-    observed_values['nitrogen_oxide_north'] = lo_dissolved_inorganic_nitrogen_north_data['NO'].astype(float)
-    observed_values['nitrogen_oxide_south'] = lo_dissolved_inorganic_nitrogen_south_data['NO'].astype(float)
-    observed_values['nitrogen_oxide'] = (observed_values['nitrogen_oxide_north'] + observed_values['nitrogen_oxide_south']) / 2
+    # Nitrogen Oxide
+    observed_values['nitrogen_oxide_north'] = din_north['NO'].astype(float)
+    observed_values['nitrogen_oxide_south'] = din_south['NO'].astype(float)
+    observed_values['nitrogen_oxide'] = (din_north['NO'] + din_south['NO']) / 2
 
-    observed_values['chlorophyll_a_north'] = chlorophyll_a_north_data['Chla'].astype(float)
-    observed_values['chlorophyll_a_south'] = chlorophyll_a_south_data['Chla'].astype(float)
-    observed_values['chlorophyll_a'] = (observed_values['chlorophyll_a_north'] + observed_values['chlorophyll_a_south']) / 2
+    # Chlorophyll-a (NOT aligned with the other variables)
+    observed_values['chlorophyll_a_north'] = chla_north['Chla'].astype(float)
+    observed_values['chlorophyll_a_south'] = chla_south['Chla'].astype(float)
+    observed_values['chlorophyll_a'] = (chla_north['Chla'] + chla_south['Chla']) / 2
 
-    observed_values['dissolved_inorganic_nitrogen_north'] = lo_dissolved_inorganic_nitrogen_north_data['DIN'].astype(float)
-    observed_values['dissolved_inorganic_nitrogen_south'] = lo_dissolved_inorganic_nitrogen_south_data['DIN'].astype(float)
-    observed_values['dissolved_inorganic_nitrogen'] = (observed_values['dissolved_inorganic_nitrogen_north'] + observed_values['dissolved_inorganic_nitrogen_south']) / 2
+    # DIN
+    observed_values['dissolved_inorganic_nitrogen_north'] = din_north['DIN'].astype(float)
+    observed_values['dissolved_inorganic_nitrogen_south'] = din_south['DIN'].astype(float)
+    observed_values['dissolved_inorganic_nitrogen'] = (din_north['DIN'] + din_south['DIN']) / 2
 
-    observed_values['dissolved_inorganic_phosphorus_north'] = lo_orthophosphate_north_data['OP'].astype(float)
-    observed_values['dissolved_inorganic_phosphorus_south'] = lo_orthophosphate_south_data['OP'].astype(float)
-    observed_values['dissolved_inorganic_phosphorus'] = (observed_values['dissolved_inorganic_phosphorus_north'] + observed_values['dissolved_inorganic_phosphorus_south']) / 2
+    # DIP (Orthophosphate)
+    observed_values['dissolved_inorganic_phosphorus_north'] = op_north['OP'].astype(float)
+    observed_values['dissolved_inorganic_phosphorus_south'] = op_south['OP'].astype(float)
+    observed_values['dissolved_inorganic_phosphorus'] = (op_north['OP'] + op_south['OP']) / 2
 
     return observed_values
+
 
 
 def _get_light_attenuation(calibration_parameter_no: list, calibration_parameter_chla: list) -> dict:
@@ -621,7 +769,7 @@ def _calculate_nitrogen_oxide(i: int, loone_nchla_fns: object, temperature: list
         None
     """
     fT_NO = loone_nchla_fns.f_T_alt1(temperature[i], T_opt_NO, T_min_NO, T_max_NO)
-    fL_NO = loone_nchla_fns.f_L_alt1(photo_period['Data'].iloc[i], rad[i], Kw_NO, Kc_NO, Sim_Chla[i], z[i],
+    fL_NO = loone_nchla_fns.f_L_alt1(photo_period['photoperiod'].iloc[i], rad[i], Kw_NO, Kc_NO, Sim_Chla[i], z[i],
                                      K1_NO, K2_NO)
 
     DfEq_Res_N = odeint(loone_nchla_fns.NOx_N_DiffEq, NO_N[i], t,
@@ -706,7 +854,7 @@ def _calculate_chlorophyll_a(i: int, loone_nchla_fns: object, temperature: list,
         None
     """
     fT_Chla = loone_nchla_fns.f_T__Chla_alt1(temperature[i], T_opt_Chla, T_min_Chla, T_max_Chla, nitro_model_output['date'].iloc[i].month)
-    fL_Chla = loone_nchla_fns.f_L_alt1(photo_period['Data'].iloc[i], rad[i], Kw_Chla, Kc_Chla, Sim_Chla[i], z[i], K1_Chla, K2_Chla) * 1.2 if nitro_model_output['date'].iloc[i].month in (6, 7, 8, 9, 10) else loone_nchla_fns.f_L_alt1(photo_period['Data'].iloc[i], rad[i], Kw_Chla, Kc_Chla, Sim_Chla[i], z[i], K1_Chla, K2_Chla) * 1
+    fL_Chla = loone_nchla_fns.f_L_alt1(photo_period['photoperiod'].iloc[i], rad[i], Kw_Chla, Kc_Chla, Sim_Chla[i], z[i], K1_Chla, K2_Chla) * 1.2 if nitro_model_output['date'].iloc[i].month in (6, 7, 8, 9, 10) else loone_nchla_fns.f_L_alt1(photo_period['photoperiod'].iloc[i], rad[i], Kw_Chla, Kc_Chla, Sim_Chla[i], z[i], K1_Chla, K2_Chla) * 1
 
     Sim_Chla_N[i + 1] = loone_nchla_fns.Chla_N_alt1(External_Chla_M[i], Q_N2S[i], Sim_Chla_N[i], vc, z[i], K_m_T[i], K_r_T[i], 0, G_max_Chla, fT_Chla, fL_Chla, f_P_N_Chla[i], f_N_N_Chla[i], volume_north[i])
     Sim_Chla_S[i + 1] = loone_nchla_fns.Chla_S_alt1(Q_N2S[i], Q_O_M[i], Sim_Chla_N[i], Sim_Chla_S[i], vc, z[i], K_m_T[i], K_r_T[i], 0, G_max_Chla, fT_Chla, fL_Chla, f_P_S_Chla[i], f_N_S_Chla[i], volume_south[i])
@@ -737,7 +885,7 @@ def _calculate_chla_loads(i: int, Sim_Chla_S: list, s77_outflow: list, s308_outf
         return Chla_Load_Cal, Chla_Load_StL, None
 
 
-def LOONE_WQ(workspace: str, photo_period_filename: str = 'PhotoPeriod', forecast_mode: bool = False, ensemble_number: int = None) -> list:
+def LOONE_WQ(workspace: str, photo_period_filename: str = 'PhotoPeriod', forecast_mode: bool = False, ensemble_number: int = None, start_month: int = None) -> list:
     """Daily Nitrate-Nitrite NOx and Chlorophyll-a Modeling
 
     Args:
@@ -753,12 +901,12 @@ def LOONE_WQ(workspace: str, photo_period_filename: str = 'PhotoPeriod', forecas
     config = load_config(workspace)
 
     # Initialize the Data object
-    data = DClass(workspace, forecast_mode, ensemble_number)
+    data = DClass(workspace, forecast_mode, ensemble_number, start_month)
 
     # Read Required Data
     flow_path = os.path.join(workspace, f'LO_Inflows_BK_forecast_{ensemble_number:02}.csv' if forecast_mode else config['lo_inflows_bk'])
 
-    data_dict = _load_data(workspace, flow_path, forecast_mode, photo_period_filename, config, ensemble_number)
+    data_dict = _load_data(workspace, flow_path, forecast_mode, photo_period_filename, config, ensemble_number, start_month)
 
     inflows = data_dict['inflows']
     temperature_data = data_dict['temperature_data']
@@ -777,17 +925,82 @@ def LOONE_WQ(workspace: str, photo_period_filename: str = 'PhotoPeriod', forecas
     lo_dissolved_inorganic_nitrogen_north_data = data_dict['lo_dissolved_inorganic_nitrogen_north_data']
     lo_dissolved_inorganic_nitrogen_south_data = data_dict['lo_dissolved_inorganic_nitrogen_south_data']
 
+
+    temperature_data['date'] = pd.to_datetime(temperature_data['date'])
+    temperature_daily = (
+        temperature_data
+        .set_index('date')
+        .resample('D')
+        .mean()[['Water_T']]
+        .rename(columns={'Water_T': 'temperature'})
+        .reset_index()
+    )
+
+
+    dissolved_oxygen['date'] = pd.to_datetime(dissolved_oxygen['date'])
+    dissolved_oxygen = dissolved_oxygen[['date', 'Mean_DO']].rename(columns={'Mean_DO': 'dissolved_oxygen'})
+
+    combined_df = temperature_daily.merge(dissolved_oxygen, on='date', how='outer')
+
+    # List of datasets to merge, with optional suffixes
+    other_datasets = [
+        (inflows, None),
+        (radiation_data, None),
+        (storage_data, None),
+        (chlorophyll_a_north_data, 'north'),
+        (chlorophyll_a_south_data, 'south'),
+        (external_nitrate_loadings, None),
+        (s65e_nitrate_data, None),
+        (chlorophyll_a_loads_in, None),
+        (s65e_chlorophyll_a_data, None),
+        (lo_orthophosphate_north_data, 'north'),
+        (lo_orthophosphate_south_data, 'south'),
+        (lo_dissolved_inorganic_nitrogen_north_data, 'north'),
+        (lo_dissolved_inorganic_nitrogen_south_data, 'south')
+    ]
+
+    for df, suffix in other_datasets:
+        df['date'] = pd.to_datetime(df['date'])
+        if suffix is not None:
+            # Rename columns on-the-fly except 'date'
+            rename_dict = {col: f"{col}_{suffix}" for col in df.columns if col != 'date'}
+            combined_df = combined_df.merge(df.rename(columns=rename_dict), on='date', how='outer')
+        else:
+            combined_df = combined_df.merge(df, on='date', how='outer')
+
+
+    combined_df['doy'] = combined_df['date'].dt.dayofyear
+
+    # Prepare photo period table
+    photo_period = photo_period.rename(columns={'Day': 'doy', 'Data': 'photoperiod'})
+    photo_period['doy'] = photo_period['doy'].astype(int)
+
+    # Merge
+    combined_df = combined_df.merge(photo_period, on='doy', how='left')
+
+
+    if forecast_mode:
+        today = pd.to_datetime(datetime.today().date())
+        combined_df = combined_df[combined_df['date'] >= today].reset_index(drop=True)
+
+    combined_df = combined_df.sort_values('date').reset_index(drop=True)
+    # Group by day and take daily averages
+    combined_df = combined_df.groupby('date', as_index=False).mean(numeric_only=True)
+    combined_df = combined_df.dropna(subset=['temperature']).reset_index(drop=True)
+    if not forecast_mode:
+        temperature = temperature_data['Water_T'].astype(float)
+    else:
+        temperature = combined_df['temperature'].astype(float)
+        photo_period = combined_df[['doy', 'photoperiod']].copy()
+
+    dissolved_oxygen = dissolved_oxygen['dissolved_oxygen'].astype(float)
     date_start = inflows['date'].iloc[0]
-
-    rad = radiation_data['Mean_RADT'].astype(float) * 4.6 * 1000
-
-    temperature = temperature_data['Water_T'].astype(float)
-    dissolved_oxygen = dissolved_oxygen['Mean_DO'].astype(float)
+    rad = radiation_data['Mean_RADT'].astype(float) * 4.6 * 1000 #TODO - what is this unit conversion
     # external_nitrite_nitrate = external_nitrate_loadings['External_NO_Ld_mg'].astype(float)  # mg
     # s65e_nitrite_nitrate = (s65e_nitrate_data[s65e_nitrate_data['date'] >= date_start]['Data'] * 1000).astype(float).tolist()  # mg/m3
 
     # external_chlorophyll_a = chlorophyll_a_loads_in['Chla_Loads'].astype(float) * 3  # mg
-    # s65e_chlorophyll_a = s65e_chlorophyll_a_data[s65e_chlorophyll_a_data['date'] >= date_start]['Data'].astype(float).tolist()
+    # s65echlorophyll_a = s65e_chlorophyll_a_data[s65e_chlorophyll_a_data['date'] >= date_start]['Data'].astype(float).tolist()
 
     # N-S Procedure
     N_Per = 0.43
@@ -824,20 +1037,39 @@ def LOONE_WQ(workspace: str, photo_period_filename: str = 'PhotoPeriod', forecas
     # s308_outflow = outflows_observed['S308_Out']
     if not forecast_mode:
         outflows_observed = pd.read_csv(os.path.join(workspace, config['outflows_observed']))
+        if config["sim_type"] == 3 and start_month is not None:
+            outflows_observed = daily_average_calc(outflows_observed, ['S65_Q', 'S71_Q', 'S72_Q', 'S84_Q', 'S127_C_Q', 'S127_P_Q',
+                                                                    'S129_C_Q', 'S129_P_Q', 'S133_P_Q', 'S135_C_Q', 'S135_P_Q', 'S154_Q',
+                                                                    'S191_Q', 'S308_Q', 'S351_Q', 'S352_Q', 'S354_Q', 'FISHP_Q', 'L8_Q',
+                                                                    'S2_P_Q', 'S3_P_Q', 'S4_P_Q', 'S77_Q', 'INDUST_Q', 'S127_In', 'S129_In',
+                                                                    'S135_In', 'S308_In', 'S77_In', 'S351_In', 'S352_In', 'S354_In',
+                                                                    'L8_In', 'S308_Out', 'S77_Out', 'INDUST_Out', 'S351_Out', 'S352_Out',
+                                                                    'S354_Out', 'L8_Out', 'Inflows', 'Netflows', 'Outflows'])
+            outflows_observed = correct_month(outflows_observed, start_month)
+        # TODO - should this always use the LOONE Q outputs?
         s77_outflow = outflows_observed['S77_Out']
         s308_outflow = outflows_observed['S308_Out']
         stage = storage_data['Stage_ft'].astype(float) * 0.3048  # m
-        volume = storage_data['Storage_cmd'].astype(float)  # m3
-        total_regional_outflow_south = outflows_observed[['S351_Out', 'S354_Out', 'S352_Out', 'L8_Out']].sum(axis=1) / 1233.48    # m3/day to acft
+        # volume = storage_data['Storage_cmd'].astype(float)  # m3
+        # total_regional_outflow_south = outflows_observed[['S351_Out', 'S354_Out', 'S352_Out', 'L8_Out']].sum(axis=1) / 1233.48    # m3/day to acft
+        volume = LOONE_Q_Outputs['Storage'] * 1233.48  # acft to m3
+        total_regional_outflow_south = LOONE_Q_Outputs['TotRegSo'] # acft/day 
     else:
-        s77_outflow = LOONE_Q_Outputs['S77_Q'] * 0.0283168 * 86400  # cfs to cubic meters per day
-        s308_outflow = LOONE_Q_Outputs['S308_Q'] * 0.0283168 * 86400  # cfs to cubic meters per day
+        if 'Unnamed: 0' in LOONE_Q_Outputs.columns:
+            LOONE_Q_Outputs = LOONE_Q_Outputs.drop(columns=['Unnamed: 0'])
+
+        # Ensure date is datetime
+        LOONE_Q_Outputs['date'] = pd.to_datetime(LOONE_Q_Outputs['date'])
+
+        # Merge into combined_df
+        combined_df = combined_df.merge(LOONE_Q_Outputs, on='date', how='left')
+        s77_outflow = combined_df['S77_Q'] * 0.0283168 * 86400  # cfs to cubic meters per day
+        s308_outflow = combined_df['S308_Q'] * 0.0283168 * 86400  # cfs to cubic meters per day
+        volume = combined_df['Storage'] * 1233.48  # acft to m3
+        total_regional_outflow_south = combined_df['TotRegSo'] # acft/day 
 
     # Simulated Stage and Storage
-        stage = LOONE_Q_Outputs['Stage'] * 0.3048  # ft to m
-        volume = LOONE_Q_Outputs['Storage'] * 1233.48  # acft to m3
-        #TODO: If we convert this to use loone_q outputs instead of geoglows data then we will have a value here
-        total_regional_outflow_south = LOONE_Q_Outputs['TotRegSo'] # acft/day 
+        stage = combined_df['Stage'] * 0.3048  # ft to m
 
     # Observed Stage and Storage
 
@@ -846,9 +1078,11 @@ def LOONE_WQ(workspace: str, photo_period_filename: str = 'PhotoPeriod', forecas
 
     # q_o = s77_outflow + s308_outflow + total_regional_outflow_south * 1233.48  # cmd
 
-    #TODO: This is reading in mostly just historical values
-    observed_values = _calculate_observed_values(lo_dissolved_inorganic_nitrogen_north_data, lo_dissolved_inorganic_nitrogen_south_data, chlorophyll_a_north_data, chlorophyll_a_south_data, lo_orthophosphate_north_data, lo_orthophosphate_south_data)
-
+    if not forecast_mode:
+        observed_values = _calculate_observed_values(lo_dissolved_inorganic_nitrogen_north_data, lo_dissolved_inorganic_nitrogen_south_data, chlorophyll_a_north_data, chlorophyll_a_south_data, lo_orthophosphate_north_data, lo_orthophosphate_south_data)
+    else:
+        observed_values = calculate_observed_values_from_combined(combined_df)
+    
     ammonium_north_observed = observed_values['ammonium_north']
     ammonium_south_observed = observed_values['ammonium_south']
     ammonium_observed = observed_values['ammonium']
@@ -1080,9 +1314,10 @@ def LOONE_WQ(workspace: str, photo_period_filename: str = 'PhotoPeriod', forecas
     else:
         datasets = [s65e_nitrate_data, s65e_chlorophyll_a_data, chlorophyll_a_loads_in, inflows, external_nitrate_loadings, LOONE_Q_Outputs]
     for df in datasets:
+        df['date'] = pd.to_datetime(df['date'])
         df.drop(df[df['date'] < date_start].index, inplace=True)
 
-    # Merge all data on date - this ensures that the dates will line up
+    # Merge all data on date - this ensures that the dates will line up - TODO - did the early merge already fix this?
     merged = inflows[['date', 'Inflows_cmd']].merge(
         chlorophyll_a_loads_in[['date', 'Chla_Loads']], on='date'
     ).merge(
@@ -1093,13 +1328,14 @@ def LOONE_WQ(workspace: str, photo_period_filename: str = 'PhotoPeriod', forecas
         external_nitrate_loadings[['date', 'External_NO_Ld_mg']], on='date'
     )
     if not forecast_mode:
+        
         merged = merged.merge(
             outflows_observed[['date', 'S77_Out', 'S308_Out', 'S351_Out', 'S354_Out', 'S352_Out', 'L8_Out']], on='date'
         )
     else:
         # LOONE_Q_Outputs['date'] = LOONE_Q_Outputs['date'].dt.date
         merged = merged.merge(
-           LOONE_Q_Outputs[['date', 'S77_Q', 'S308_Q', 'TotRegSo']], on='date'
+           combined_df[['date', 'S77_Q', 'S308_Q', 'TotRegSo']], on='date'
         )
 
     # Rename for clarity
@@ -1191,12 +1427,21 @@ def LOONE_WQ(workspace: str, photo_period_filename: str = 'PhotoPeriod', forecas
             'Constit_Loads_M': constit_loads_m,
             'Nitro_Mod_Out_M': nitro_mod_out_m,
         }
+
         return_list = list(variables_dict.values())
 
-        #TODO: Will this end up having ensembles after we have the forecast data reading in correctly?
+        # TODO: Constit Loads needs ensemble members number
         for k, v in variables_dict.items():
-            file_name = f'{k}_forecast' if forecast_mode else k
-            v.to_csv(os.path.join(workspace, f'{file_name}.csv'), index=False)
+            if forecast_mode and k in {"Constit_Loads", "Constit_Loads_M"}:
+                file_name = f"{k}_forecast_ens{ensemble_number:02}"
+            else:
+                file_name = f"{k}_forecast" if forecast_mode else k
+
+            v.to_csv(
+                os.path.join(workspace, f"{file_name}.csv"),
+                index=False
+            )
+
         return return_list
     else:
         return_list = [Smr_Mnth_NOx_StL_arr, Smr_Mnth_Chla_StL_arr, Smr_Mnth_NOx_Cal_arr, Smr_Mnth_Chla_Cal_arr,

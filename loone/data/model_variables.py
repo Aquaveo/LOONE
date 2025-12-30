@@ -1,11 +1,12 @@
 import numpy as np
 import pandas as pd
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, date
+from calendar import monthrange
 
 
 class M_var:
     """Class to represents model variables."""
-    def __init__(self, config: dict, forecast: bool = False):
+    def __init__(self, config: dict, forecast: bool = False, start_month: int = None) -> None:
         """
         Initializes the M_var class with model variables.
 
@@ -19,6 +20,8 @@ class M_var:
                 - "end_date_entry": A list of integers [year, month, day] for the end date.
                 - "end_date_tc": A list of integers [year, month, day] for the end date of tributary conditions.
                 - "month_n": An integer representing the number of months for the LONINO seasonal classes.
+            forecast (bool, optional): A flag indicating whether the model is in forecast mode. Defaults to False.
+            start_month (int, optional): The starting month for seasonal calculations in forecast mode. Defaults to None.
         """
         if forecast==True:
             today = datetime.today().date()
@@ -32,7 +35,13 @@ class M_var:
             enddate = datetime(year, month, day).date()
             year, month, day = map(int, config["end_date_tc"])
             enddate_TC = datetime(year, month, day).date()
-        
+        if config["sim_type"] == 3 and start_month:
+            startdate = datetime(startdate.year, start_month, 1).date()
+            end_month = start_month - 1 or 12
+            end_year  = startdate.year + (start_month != 1)
+            enddate   = date(end_year, end_month, monthrange(end_year, end_month)[1])
+            enddate_TC = enddate
+            
         TC_Count = len(pd.date_range(
             start=startdate, end=enddate_TC, freq="W-Fri"
         ))

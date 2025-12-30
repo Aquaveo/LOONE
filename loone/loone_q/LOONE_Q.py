@@ -2,7 +2,7 @@ import os
 import argparse
 import pandas as pd
 import numpy as np
-from datetime import datetime, timedelta
+from datetime import date, datetime, timedelta
 from calendar import monthrange
 from typing import List
 from loone.utils import (
@@ -1753,17 +1753,17 @@ def _calculate_targ_stg_df(
 
     targ_stg_df = pd.DataFrame(daily_date_range, columns=["dates"])
 
-    # Extract year and day of year (vectorized)
-    targ_stg_df["year"] = targ_stg_df["dates"].dt.year
     targ_stg_df["day_of_year"] = targ_stg_df["dates"].dt.dayofyear
+    targ_stg["day_of_year"] = targ_stg["Date"].dt.dayofyear
 
-    # Compute percentiles in a single vectorized operation
-    for perc in [10, 20, 25, 30, 40, 45, 50, 60]:
-        targ_stg_df[f"{perc}%"] = targ_stg_df.apply(
-            lambda row: replicate(row["year"], row["day_of_year"], perc, targ_stg),
-            axis=1,
-        )
+    percentiles = [10, 20, 25, 30, 40, 45, 50, 60]
+    targ_stg_subset = targ_stg[["day_of_year"] + [f"{p}%" for p in percentiles]]
 
+    targ_stg_df = targ_stg_df.merge(
+        targ_stg_subset,
+        on=["day_of_year"],
+        how="left"
+    )
     return targ_stg_df
 
 
@@ -1782,9 +1782,16 @@ def _calculate_late_dry_season(
     """
     late_dry_season = [3 < date.month < 6 for date in adaptive_protocol_df["date"]]
     adaptive_protocol_df["Late_Dry_Season"] = late_dry_season
-    adaptive_protocol_df["Tributary Hydrologic Condition"] = tc_lonino_df[
-        "Tributary_Condition"
-    ]
+    adaptive_protocol_df = adaptive_protocol_df.merge(
+        tc_lonino_df[["date", "Tributary_Condition"]],
+        on="date",
+        how="left"
+    )
+    adaptive_protocol_df.rename(
+        columns={"Tributary_Condition": "Tributary Hydrologic Condition"},
+        inplace=True
+    )
+    return adaptive_protocol_df
 
 
 def _calculate_basin_runoff(
@@ -1804,34 +1811,38 @@ def _calculate_basin_runoff(
         outlet2_baseflow (float): The outlet2 baseflow.
 
     Returns:
-        None
+        basin_ro (pd.DataFrame): The updated basin runoff DataFrame.
     """
-    # Number of rows
-    num_B_R = len(basin_ro)
+    # Create month key for alignment
+    basin_ro["year_month"] = basin_ro["date"].dt.to_period("M")
+    data.C43RO["year_month"] = data.C43RO["date"].dt.to_period("M")
+    data.C44RO["year_month"] = data.C44RO["date"].dt.to_period("M")
+    if not forecast:
+        data.SLTRIB["year_month"] = data.SLTRIB["date"].dt.to_period("M")
+    # Merge C43RO and C44RO
+    basin_ro = basin_ro.merge(data.C43RO[["year_month", "C43RO"]], on="year_month", how="left")
+    basin_ro = basin_ro.merge(data.C44RO[["year_month", "C44RO"]], on="year_month", how="left")
 
-    # Compute number of days in each month (vectorized)
+    # Compute number of days in month
     basin_ro["Ndays"] = basin_ro["date"].apply(lambda d: monthrange(d.year, d.month)[1])
 
-    # Compute baseflow shortfalls (vectorized) 
-    #TODO: keep the date in the monthly flow so that we can compare and make sure it is correct
-    basin_ro["BS-C43RO"] = np.maximum(0, outlet1_baseflow - data.C43RO["C43RO"])
-    basin_ro["BS-C44RO"] = np.maximum(0, outlet2_baseflow - data.C44RO["C44RO"])
+    # Compute baseflow shortfalls
+    basin_ro["BS-C43RO"] = np.maximum(0, outlet1_baseflow - basin_ro["C43RO"])
+    basin_ro["BS-C44RO"] = np.maximum(0, outlet2_baseflow - basin_ro["C44RO"])
 
-    # Compute C44RO_SLTrib (vectorized)
-    # Only keeping SLTRIB if forecast is false
+    # Optional SLTRIB addition
     if not forecast:
-        basin_ro["C44RO_SLTRIB"] = basin_ro["BS-C44RO"] + data.SLTRIB["SLTRIB_cfs"]
+        basin_ro = basin_ro.merge(
+            data.SLTRIB[["year_month", "SLTRIB_cfs"]].rename(columns={"SLTRIB_cfs":"SLTRIB"}), 
+            on="year_month", how="left"
+        )
+        basin_ro["C44RO_SLTRIB"] = basin_ro["BS-C44RO"] + basin_ro["SLTRIB"]
 
-    # Compute baseflow contribution for C44 (vectorized)
-    basin_ro["C44RO-BS"] = (
-        np.maximum(0, data.C44RO["C44RO"] - outlet2_baseflow) * basin_ro["Ndays"]
-    )
-
-    # Assign direct column values from data
-    basin_ro["C43RO"] = data.C43RO["C43RO"]
-    basin_ro["C44RO"] = data.C44RO["C44RO"]
-    if not forecast:
-        basin_ro["SLTRIB"] = data.SLTRIB["SLTRIB_cfs"]
+    # Baseflow contribution for C44RO
+    basin_ro["C44RO-BS"] = np.maximum(0, basin_ro["C44RO"] - outlet2_baseflow) * basin_ro["Ndays"]
+    basin_ro = basin_ro.drop(columns=["year_month"])
+    
+    return basin_ro
 
 
 def _initialize_lo_model(
@@ -1850,11 +1861,32 @@ def _initialize_lo_model(
     """
     lo_model = pd.DataFrame(date_range, columns=["date"])
 
-    lo_model["Net_Inflow"] = data.NetInf_Input["Netflows_acft"]
-    lo_model["LOSA_dmd_SFWMM"] = data.SFWMM_W_dmd["LOSA_dmd"] * (
-        config["mult_losa"] / 100
+    lo_model["date"] = pd.to_datetime(lo_model["date"])
+    data.NetInf_Input["date"] = pd.to_datetime(data.NetInf_Input["date"])
+
+    lo_model = (
+        lo_model
+        .merge(
+            data.NetInf_Input[["date", "Netflows_acft"]]
+            .rename(columns={"Netflows_acft": "Net_Inflow"}),
+            on="date",
+            how="left",
+        )
+        .merge(
+            data.SFWMM_W_dmd[["date", "LOSA_dmd"]],
+            on="date",
+            how="left",
+        )
+        .merge(
+            data.C44_Runoff[["date", "C44RO"]],
+            on="date",
+            how="left",
+        )
     )
-    lo_model["C44RO"] = data.C44_Runoff["C44RO"]
+    lo_model["LOSA_dmd_SFWMM"] = (
+        lo_model["LOSA_dmd"] * (config["mult_losa"] / 100)
+    )
+
     return lo_model
 
 
@@ -1907,17 +1939,15 @@ def _calculate_daily_water_demand(
     """
     water_demand = pd.DataFrame(date_range, columns=["date"])
 
-    # Compute 'count' using a cumulative sum
-    water_demand["count"] = (water_demand["date"].dt.month != date_range[0].month) | (
-        water_demand["date"].dt.day != date_range[0].day
+    water_demand["Week_num"] = (
+        water_demand["date"]
+        .dt.isocalendar()
+        .week
+        .astype(int)
+        .clip(upper=52)
     )
-    water_demand["count"] = water_demand["count"].cumsum()
 
-    # Compute 'Week_num' directly
-    water_demand["Week_num"] = water_demand["count"].floordiv(7).add(1)
-    water_demand.loc[water_demand["count"] > 363, "Week_num"] = 52  # Cap at 52
-
-    # Compute 'Daily_demand' using vectorized operations
+    # Compute 'Daily_demand'
     weekly_demand = data.Weekly_dmd[f'C{config["code"]}']
     water_demand["Daily_demand"] = (
         weekly_demand.iloc[water_demand["Week_num"] - 1].values / 7
@@ -1959,8 +1989,14 @@ def _create_dectree_df(
     Returns:
         pd.DataFrame: The decision tree DataFrame.
     """
-    dec_tree_df = pd.DataFrame(daily_date_range, columns=["Date"])
-    dec_tree_df["Zone_B_MetFcast"] = tc_lonino_df["LONINO_Seasonal_Classes"]
+    dec_tree_df = pd.DataFrame(daily_date_range, columns=["date"])
+    dec_tree_df = dec_tree_df.merge(
+        tc_lonino_df[["date", "LONINO_Seasonal_Classes"]]
+        .rename(columns={"LONINO_Seasonal_Classes": "Zone_B_MetFcast"}),
+        on="date",
+        how="left",
+    )
+
     return dec_tree_df
 
 
@@ -2019,6 +2055,7 @@ def _initialize_model_variables_stage_levels_flags(
         model_variables.Lake_Stage[1] = config["beg_stage_cs"]
     model_variables.DecTree_Relslevel[0] = np.nan
     model_variables.DecTree_Relslevel[1] = np.nan
+    #TODO - not sure what this is doing
     model_variables.DayFlags[2] = _determine_day_flags(startdate, lo_model, begdateCS)
 
 
@@ -2028,6 +2065,7 @@ def LOONE_Q(
     optimization_params: dict[float] = None,
     forecast: bool = False,
     ensemble: int = None,
+    month: int = None,
 ) -> None:
     """This function runs the LOONE Q module.
 
@@ -2039,6 +2077,7 @@ def LOONE_Q(
             including p1, p2, s77_dv, s308_dv, and tp_lake_s. Required when sim_type is 2. Defaults to None.
         forecast (bool, optional): Whether to run in forecast mode. Defaults to False.
         ensemble (int, optional): The ensemble number. Defaults to None. Only necesary for forecast mode.
+        month (int, optional): The month number. Required for sim_type 3. Defaults to None.
 
     Returns:
         None
@@ -2055,16 +2094,27 @@ def LOONE_Q(
     else:
         p1 = p2 = s77_dv = s308_dv = tp_lake_s = 0
 
-    data = DClass(workspace, forecast, ensemble)
-    model_variables = MVarClass(config, forecast)
+    data = DClass(workspace, forecast, ensemble, month = month)
+    model_variables = MVarClass(config, forecast, start_month=month)
     print("LOONE Q Module is Running!")
     # Based on the defined Start and End year, month, and day on the
     # Pre_defined_Variables File, Startdate and enddate are defined.
     startdate, begdateCS, enddate = _define_start_and_end_dates(config)
+    if config["sim_type"] == 3 and month:
+        startdate = date(startdate.year, month, 1)
 
+        # Compute enddate = last day of the month before start month
+        if month == 1:
+            end_year = startdate.year
+            end_month = 12
+        else:
+            end_year = startdate.year + 1
+            end_month = month - 1
+
+        enddate = date(end_year, end_month, monthrange(end_year, end_month)[1])
     ###################################################################
     if config["sim_type"] in [0, 1, 3]:
-        df_wsms.WSMs(workspace, forecast, ensemble)
+        df_wsms.WSMs(workspace, forecast, ensemble, month)
 
     df_WSMs = pd.read_csv("df_WSMs.csv")
 
@@ -2073,7 +2123,7 @@ def LOONE_Q(
     # demand that will be used based on a Code (1:6).
     # Set time frame for model run
     if forecast:
-        today_date = datetime.today()
+        today_date = datetime.today().date()
         future_date = today_date + timedelta(days=15)
         daily_date_range = pd.date_range(start=today_date, end=future_date, freq="D")
     else:
@@ -2087,9 +2137,9 @@ def LOONE_Q(
 
     ###################################################################
     # Determine Tributary Hydrologic Conditions
-    tc_lonino_df = trib_hc.Trib_HC(workspace, forecast, ensemble)
+    tc_lonino_df = trib_hc.Trib_HC(workspace, forecast, ensemble, month)
     # Determine WCA Stages
-    wca_stages_df = WCA_Stages_Cls(workspace, tc_lonino_df, forecast)
+    wca_stages_df = WCA_Stages_Cls(workspace, tc_lonino_df, forecast, month)
     # A dataframe to determine eachday's season (Months 11,12,1,2 are
     # Season 1, Months 3,4,5 are season 2, Months 6,7 are season 3,
     # Months 8,9,10 are season 4 )
@@ -2140,8 +2190,12 @@ def LOONE_Q(
     # Baseflows
     outlet1_baseflow = data.S77_RegRelRates["Zone_D0"].iloc[0]
     outlet2_baseflow = data.S80_RegRelRates["Zone_D0"].iloc[0]
-    _calculate_basin_runoff(basin_ro, data, outlet1_baseflow, outlet2_baseflow, forecast)
-    lo_model["C43RO"] = data.C43RO_Daily["C43RO"]
+    basin_ro = _calculate_basin_runoff(basin_ro, data, outlet1_baseflow, outlet2_baseflow, forecast)
+    lo_model = lo_model.merge(
+        data.C43RO_Daily[["date", "C43RO"]],
+        on="date",
+        how="left"
+    )
     pulse_averages = _calculate_pulse_averages(data, config)
     s80avg_l1 = pulse_averages["s80avg_l1"]
     s80avg_l2 = pulse_averages["s80avg_l2"]
@@ -2161,7 +2215,7 @@ def LOONE_Q(
     # the proposed Lake Okeechobee Adaptive Protocol.
     # adaptive_protocol_df = pd.DataFrame(date_range_5, columns=["date"])
     adaptive_protocol_df = pd.DataFrame(daily_date_range, columns=["date"])
-    _calculate_late_dry_season(adaptive_protocol_df, tc_lonino_df)
+    adaptive_protocol_df = _calculate_late_dry_season(adaptive_protocol_df, tc_lonino_df)
 
     # targ_stg_df = _calculate_targ_stg_df(config, data, date_range_5, model_variables)
     targ_stg_df = _calculate_targ_stg_df(
@@ -2200,6 +2254,7 @@ def LOONE_Q(
     ###################################################################
     _calculate_initial_zone_code_and_lo_zone(model_variables, lo_functions, df_WSMs)
     for i in range(n_rows - 2):
+    # for i in daily_date_range:
         _calculate_wsm_zone(i, model_variables, lo_functions, df_WSMs)
         _calculate_max_supply(i, model_variables, lo_functions, water_demand, config)
         _calculate_losa_supply(i, model_variables, lo_functions, lo_model, config)
@@ -2346,7 +2401,7 @@ def LOONE_Q(
         data=model_variables.Outlet1USREG, columns=["Outputs"]
     )
     df_saint_lucie = pd.DataFrame(data=model_variables.Outlet2USRG, columns=["Outputs"])
-    df_south = pd.DataFrame(data=model_variables.TotRegSo / 1.9835, columns=["Outputs"])
+    df_south = pd.DataFrame(data=model_variables.TotRegSo / 1.9835, columns=["Outputs"]) #TODO - why do we divide by 1.9835 here?
     df_out = pd.concat([df_stage, df_caloosahatchee, df_saint_lucie, df_south])
 
     return [lo_model, df_out.T.loc["Outputs"]]
