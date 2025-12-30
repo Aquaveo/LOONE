@@ -1,7 +1,7 @@
 import os
 import pandas as pd
 import numpy as np
-from datetime import datetime, timedelta
+from datetime import date, datetime, timedelta
 from calendar import monthrange
 from loone.data.model_variables import M_var as MVarClass
 from loone.utils import load_config, lonino_functions
@@ -29,7 +29,7 @@ def Trib_HC(workspace: str, forecast: bool = False, ensemble: int = None, start_
     os.chdir(workspace)
     config = load_config(workspace)
     Data = DClass(workspace, forecast, ensemble, start_month)
-    M_var = MVarClass(config, forecast)
+    M_var = MVarClass(config, forecast, start_month)
     # Generate weekly time step date column where frequency is 'W-Fri' to start on 01/01/2008.
     # FIXME: Always check here for start date, end date, and frequency to match with the Trib. Condition weekly data obtained.
     if forecast:
@@ -46,11 +46,9 @@ def Trib_HC(workspace: str, forecast: bool = False, ensemble: int = None, start_
         enddate_TC = datetime(year, month, day).date()
     if config["sim_type"] == 3 and start_month:
         startdate = datetime(startdate.year, start_month, 1).date()
-        enddate_TC = datetime(
-            startdate.year + 1,
-            start_month-1,
-            monthrange(startdate.year, start_month-1)[1],
-        ).date()
+        end_month = start_month - 1 or 12
+        end_year  = startdate.year + (start_month != 1)
+        enddate_TC   = date(end_year, end_month, monthrange(end_year, end_month)[1])
         enddate = enddate_TC
     # Generate the Tributary Condition Dataframe.
     Trib_Cond_df = pd.DataFrame(

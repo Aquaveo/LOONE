@@ -150,3 +150,43 @@ def correct_month_with_padding(
     return df
 
 
+def daily_average_calc(df: pd.DataFrame, value_cols: list, placeholder_year: int = 2020) -> pd.DataFrame:
+    """
+    Compute daily averages for one or more columns across years, returning
+    a DataFrame with a 'date' column (placeholder year) and average values.
+    Column names are kept the same.
+    
+    Parameters
+    ----------
+    df : pd.DataFrame
+        Input DataFrame with a 'date' column and one or more numeric columns.
+    value_cols : list of str
+        Names of columns to compute daily averages for.
+    placeholder_year : int
+        Year to use for the output 'date' column (default: 2020, leap year).
+        
+    Returns
+    -------
+    pd.DataFrame
+        DataFrame with 'date' and averaged columns, keeping original names.
+    """
+    df = df.copy()
+    df['date'] = pd.to_datetime(df['date'])
+    df['day_of_year'] = df['date'].dt.dayofyear
+    
+    # Group by day-of-year and compute mean for each specified column
+    daily_avg = df.groupby('day_of_year', as_index=False)[value_cols].mean()
+    
+    daily_avg['date'] = pd.to_datetime(
+        daily_avg['day_of_year'] - 1,  # zero-based offset
+        unit='D',
+        origin=pd.Timestamp(f'{placeholder_year}-01-01')
+    )
+    
+    # Reorder columns: date first, then the value columns
+    daily_avg = daily_avg[['date'] + value_cols]
+    
+    return daily_avg
+
+
+

@@ -2,7 +2,7 @@ import os
 import numpy as np
 import pandas as pd
 from calendar import monthrange
-from datetime import datetime, timedelta
+from datetime import date, datetime, timedelta
 from loone.utils import load_config, leap_year, correct_month
 
 
@@ -34,12 +34,16 @@ def WCA_Stages_Cls(workspace: str, TC_LONINO_df: pd.DataFrame | None, forecast: 
          year, month, day = map(int, config["end_date_entry"])
          enddate = datetime(year, month, day).date()
     if config["sim_type"] == 3 and start_month:
-        startdate = datetime(startdate.year, start_month, 1).date()
-        enddate = datetime(
-            startdate.year + 1,
-            start_month-1,
-            monthrange(startdate.year, start_month-1)[1],
-        ).date()
+        startdate = date(startdate.year, start_month, 1)
+        if start_month == 1:
+            end_year = startdate.year
+            end_month = 12
+        else:
+            end_year = startdate.year + 1
+            end_month = start_month - 1
+
+        # Last day of the month before start_month
+        enddate = date(end_year, end_month, monthrange(end_year, end_month)[1])
 
     daily_date_range = pd.date_range(start=startdate, end=enddate, freq="D")
     daily_date_range = pd.to_datetime(daily_date_range)

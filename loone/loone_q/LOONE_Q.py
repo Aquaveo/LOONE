@@ -2,7 +2,7 @@ import os
 import argparse
 import pandas as pd
 import numpy as np
-from datetime import datetime, timedelta
+from datetime import date, datetime, timedelta
 from calendar import monthrange
 from typing import List
 from loone.utils import (
@@ -2101,13 +2101,17 @@ def LOONE_Q(
     # Pre_defined_Variables File, Startdate and enddate are defined.
     startdate, begdateCS, enddate = _define_start_and_end_dates(config)
     if config["sim_type"] == 3 and month:
-        startdate = datetime(startdate.year, month, 1).date()
-        enddate = datetime(
-            startdate.year + 1,
-            month-1,
-            monthrange(startdate.year, month-1)[1],
-        ).date()
+        startdate = date(startdate.year, month, 1)
 
+        # Compute enddate = last day of the month before start month
+        if month == 1:
+            end_year = startdate.year
+            end_month = 12
+        else:
+            end_year = startdate.year + 1
+            end_month = month - 1
+
+        enddate = date(end_year, end_month, monthrange(end_year, end_month)[1])
     ###################################################################
     if config["sim_type"] in [0, 1, 3]:
         df_wsms.WSMs(workspace, forecast, ensemble, month)
@@ -2119,7 +2123,7 @@ def LOONE_Q(
     # demand that will be used based on a Code (1:6).
     # Set time frame for model run
     if forecast:
-        today_date = datetime.today()
+        today_date = datetime.today().date()
         future_date = today_date + timedelta(days=15)
         daily_date_range = pd.date_range(start=today_date, end=future_date, freq="D")
     else:

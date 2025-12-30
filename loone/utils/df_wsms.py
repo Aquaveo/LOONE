@@ -3,7 +3,7 @@ from calendar import monthrange
 import os
 import numpy as np
 import pandas as pd
-from datetime import datetime, timedelta
+from datetime import date, datetime, timedelta
 from scipy import interpolate
 from loone.data import Data as DClass
 from loone.utils import load_config
@@ -29,12 +29,8 @@ def WSMs(workspace: str, forecast: bool = False, ensemble: int = None, month=Non
         end_date = datetime(ey, em, ed).date() + timedelta(days=1)
         
     if config["sim_type"] == 3 and month:
-        start_date = datetime(start_date.year, month, 1).date()
-        end_date = datetime(
-            start_date.year + 1,
-            month-1,
-            monthrange(start_date.year, month-1)[1],
-        ).date()+ timedelta(days=1)
+        start_date = date(start_date.year, month, 1)
+        end_date   = date(start_date.year + 1, month, 1)
 
     # Build daily date range
     df_wsms = pd.DataFrame(pd.date_range(start=start_date, end=end_date, freq="D"),

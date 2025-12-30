@@ -2,7 +2,7 @@ import os
 import argparse
 import numpy as np
 import pandas as pd
-from datetime import datetime, timedelta
+from datetime import date, datetime, timedelta
 from loone.utils import load_config, stg_sto_ar, correct_month
 from loone.utils import tp_mass_balance_functions_regions as TP_MBFR
 from loone.data import Data as DClass
@@ -67,7 +67,7 @@ def LOONE_NUT(
     if forecast_mode:
         startdate = datetime.now().date()  # datetime(year, month, day).date()
         enddate = startdate + timedelta(
-            days=15
+            days=14
         )  # datetime(year, month, day).date()
     else:
         year, month, day = map(int, config["start_date_entry"])
@@ -75,12 +75,18 @@ def LOONE_NUT(
         year, month, day = map(int, config["end_date_entry"])
         enddate = datetime(year, month, day).date()
     if config["sim_type"] == 3 and start_month:
-        startdate = datetime(startdate.year, start_month, 1).date()
-        enddate = datetime(
-            startdate.year + 1,
-            start_month-1,
-            monthrange(startdate.year, start_month-1)[1],
-        ).date()
+        startdate = date(startdate.year, start_month, 1)
+
+        # Handle January correctly
+        if start_month == 1:
+            end_year = startdate.year
+            end_month = 12
+        else:
+            end_year = startdate.year + 1
+            end_month = start_month - 1
+
+        # Last day of the month before start_month
+        enddate = date(end_year, end_month, monthrange(end_year, end_month)[1])
 
     date_rng_0 = pd.date_range(start=startdate, end=enddate, freq="D")
     load_ext = pd.read_csv(os.path.join(data_dir, loads_external_filename))
