@@ -1432,10 +1432,10 @@ def LOONE_WQ(workspace: str, photo_period_filename: str = 'PhotoPeriod', forecas
 
         # TODO: Constit Loads needs ensemble members number
         for k, v in variables_dict.items():
-            if forecast_mode and k in {"Constit_Loads", "Constit_Loads_M"}:
+            if forecast_mode:
                 file_name = f"{k}_forecast_ens{ensemble_number:02}"
             else:
-                file_name = f"{k}_forecast" if forecast_mode else k
+                file_name = k
 
             v.to_csv(
                 os.path.join(workspace, f"{file_name}.csv"),
