@@ -137,7 +137,7 @@ def correct_month_with_padding(
     # Add all other columns as NaN
     for col in df.columns:
         if col != date_col:
-            pad_df[col] = np.nan
+            pad_df[col] = 0 # TODO should this be NaN?
 
     df = df.drop_duplicates(subset="date")
     
