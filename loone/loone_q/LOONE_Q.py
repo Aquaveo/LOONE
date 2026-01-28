@@ -2045,14 +2045,13 @@ def _initialize_model_variables_stage_levels_flags(
     Returns:
         None
     """
-    # TODO - is this where the stage should be fixed?
     if forecast:
         stage = pd.read_csv(os.path.join(workspace, "LO_Stage.csv"))
         model_variables.Lake_Stage[0] = stage["Average_Stage"].iloc[-1]
         model_variables.Lake_Stage[1] = stage["Average_Stage"].iloc[-1]
     else:
-        model_variables.Lake_Stage[0] = config["beg_stage_cs"]
-        model_variables.Lake_Stage[1] = config["beg_stage_cs"]
+        model_variables.Lake_Stage[0] = config["start_stage"]
+        model_variables.Lake_Stage[1] = config["start_stage"]
     model_variables.DecTree_Relslevel[0] = np.nan
     model_variables.DecTree_Relslevel[1] = np.nan
     #TODO - not sure what this is doing
