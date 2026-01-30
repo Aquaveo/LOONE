@@ -1026,7 +1026,7 @@ def LOONE_WQ(workspace: str, photo_period_filename: str = 'PhotoPeriod', forecas
     # Observed S77 S308 South
     # TODO: Check this part - it has been changed a lot
     LOONE_Q_Outputs = pd.read_csv(os.path.join(workspace, f'LOONE_Q_Outputs_{ensemble_number:02}.csv' if forecast_mode else 'LOONE_Q_Outputs.csv'))
-    LOONE_Q_Outputs['date'] = pd.to_datetime(LOONE_Q_Outputs['date'], errors='coerce').dt.strftime('%Y-%m-%d')
+    LOONE_Q_Outputs['date'] = pd.to_datetime(LOONE_Q_Outputs['date'])
 
     # Should these be read from the output file of loone_q instead of from the geoglows data?
     # if forecast_mode:
@@ -1046,7 +1046,23 @@ def LOONE_WQ(workspace: str, photo_period_filename: str = 'PhotoPeriod', forecas
                                                                     'L8_In', 'S308_Out', 'S77_Out', 'INDUST_Out', 'S351_Out', 'S352_Out',
                                                                     'S354_Out', 'L8_Out', 'Inflows', 'Netflows', 'Outflows'])
             outflows_observed = correct_month(outflows_observed, start_month)
-        # TODO - should this always use the LOONE Q outputs?
+            outflows_observed = outflows_observed.rename(
+                columns={
+                    "S77_Out": "S77_Out_observed",
+                    "S308_Out": "S308_Out_observed",
+                }
+            )
+            outflows_observed = outflows_observed.merge(
+                LOONE_Q_Outputs[["date", "S77_Q", "S308_Q"]].rename(
+                    columns={
+                        "S77_Q": "S77_Out",
+                        "S308_Q": "S308_Out",
+                    }
+                ),
+                on="date",
+                how="left",
+            )
+        # TODO - should this always use the LOONE Q outputs? - Now it uses the for sim_type 3
         s77_outflow = outflows_observed['S77_Out']
         s308_outflow = outflows_observed['S308_Out']
         stage = storage_data['Stage_ft'].astype(float) * 0.3048  # m
