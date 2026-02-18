@@ -104,14 +104,11 @@ def LOONE_NUT(
     s308_q = loone_q["S308_Q"].values if 's308_q' not in simulation_data else simulation_data['s308_q'] #cfs
     #tot_reg_so should be coming from LOONE_Q, not from flow_df - these units are acft/day
     if 'tot_reg_so' in simulation_data:
-        tot_reg_so = simulation_data['tot_reg_so']
-    #TODO check with Osama
+        tot_reg_so = simulation_data['tot_reg_so']*1.9835 # convert to acft/day
     else:
-        #TODO - this may need to be divided by 1.9835 to convert to cfs
-        tot_reg_so = loone_q["TotRegSo"]
+        tot_reg_so = loone_q["TotRegSo"] # already in acft/day
     #New way to calculate q_o  - add s77_q, s308_q, and tot_reg_so - this should be converted to cmd - convert all of them to cmd, then add them together
     q_o = s308_q * CUBIC_METERS_IN_CUBIC_FOOT * SECONDS_IN_DAY + s77_q * CUBIC_METERS_IN_CUBIC_FOOT * SECONDS_IN_DAY + tot_reg_so * CUBIC_METERS_IN_ACRE_FOOT #cmd
-    #TODO: Should it read the loone_q outputs for historical data as well?
     if forecast_mode:
         sto_stage = pd.read_csv(os.path.join(data_dir, f"LOONE_Q_Outputs_{ensemble:02}.csv")) #acft
         stage_lo = sto_stage["Stage"].values if 'stage_lo' not in simulation_data else simulation_data['stage_lo'] #feet
@@ -294,7 +291,6 @@ def LOONE_NUT(
     ##Initial Values##
     # S.A. is calculated based on the Lake's previous time step Stage, but for
     # the S.A. at i=0 I used same time step Stage!
-    # TODO: Does this need to be fixed in forecast mode? - come from dbhydro to get the stage for that day
     # In forecast mode does not read from the config file - make sure this is in feet
     # start_storage = stg_sto_ar.stg2sto(config["start_stage"], 0) 
     stage_2_ar[1] = stg_sto_ar.stg2ar(stage_lo[1], 0)
@@ -1248,7 +1244,7 @@ def LOONE_NUT(
     # Add phosphorus loads as tons
     p_loads_df["P_Load_Cal"] = (
         pd.to_numeric(p_load_cal) / MILLIGRAMS_IN_TON
-    )  # tons
+    )  # tons (metric ton?)
     p_loads_df["P_Load_StL"] = (
         pd.to_numeric(p_load_stl) / MILLIGRAMS_IN_TON
     )  # tons

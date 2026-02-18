@@ -2045,14 +2045,13 @@ def _initialize_model_variables_stage_levels_flags(
     Returns:
         None
     """
-    # TODO - is this where the stage should be fixed?
     if forecast:
         stage = pd.read_csv(os.path.join(workspace, "LO_Stage.csv"))
         model_variables.Lake_Stage[0] = stage["Average_Stage"].iloc[-1]
         model_variables.Lake_Stage[1] = stage["Average_Stage"].iloc[-1]
     else:
-        model_variables.Lake_Stage[0] = config["beg_stage_cs"]
-        model_variables.Lake_Stage[1] = config["beg_stage_cs"]
+        model_variables.Lake_Stage[0] = config["start_stage"]
+        model_variables.Lake_Stage[1] = config["start_stage"]
     model_variables.DecTree_Relslevel[0] = np.nan
     model_variables.DecTree_Relslevel[1] = np.nan
     #TODO - not sure what this is doing
@@ -2401,7 +2400,7 @@ def LOONE_Q(
         data=model_variables.Outlet1USREG, columns=["Outputs"]
     )
     df_saint_lucie = pd.DataFrame(data=model_variables.Outlet2USRG, columns=["Outputs"])
-    df_south = pd.DataFrame(data=model_variables.TotRegSo / 1.9835, columns=["Outputs"]) #TODO - why do we divide by 1.9835 here?
+    df_south = pd.DataFrame(data=model_variables.TotRegSo / 1.9835, columns=["Outputs"]) # convert to cfs
     df_out = pd.concat([df_stage, df_caloosahatchee, df_saint_lucie, df_south])
 
     return [lo_model, df_out.T.loc["Outputs"]]
