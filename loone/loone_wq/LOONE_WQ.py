@@ -201,8 +201,6 @@ def _load_data(workspace: str, flow_path: str, forecast_mode: bool, photo_period
         data['s65e_chlorophyll_a_data'] = daily_average_calc(data['s65e_chlorophyll_a_data'], ['Data'])
         data['s65e_chlorophyll_a_data'] = correct_month(data['s65e_chlorophyll_a_data'], start_month)
         
-        #TODO - should other files be changed under these conditions? How would we like them to get changed?
-
     return data
 
 def calculate_observed_values_from_combined(combined_df: pd.DataFrame) -> dict:
@@ -987,15 +985,13 @@ def LOONE_WQ(workspace: str, photo_period_filename: str = 'PhotoPeriod', forecas
     # Group by day and take daily averages
     combined_df = combined_df.groupby('date', as_index=False).mean(numeric_only=True)
     combined_df = combined_df.dropna(subset=['temperature']).reset_index(drop=True)
-    if not forecast_mode:
-        temperature = temperature_data['Water_T'].astype(float)
-    else:
-        temperature = combined_df['temperature'].astype(float)
-        photo_period = combined_df[['doy', 'photoperiod']].copy()
+    #This ensures the dates will match up because of the merge
+    temperature = combined_df['temperature'].astype(float)
+    photo_period = combined_df[['doy', 'photoperiod']].copy()
 
     dissolved_oxygen = dissolved_oxygen['dissolved_oxygen'].astype(float)
     date_start = inflows['date'].iloc[0]
-    rad = radiation_data['Mean_RADT'].astype(float) * 4.6 * 1000 #TODO - what is this unit conversion
+    rad = radiation_data['Mean_RADT'].astype(float) * 4.6 * 1000 #TODO - FIgure out this unit conversion
     # external_nitrite_nitrate = external_nitrate_loadings['External_NO_Ld_mg'].astype(float)  # mg
     # s65e_nitrite_nitrate = (s65e_nitrate_data[s65e_nitrate_data['date'] >= date_start]['Data'] * 1000).astype(float).tolist()  # mg/m3
 
@@ -1024,7 +1020,6 @@ def LOONE_WQ(workspace: str, photo_period_filename: str = 'PhotoPeriod', forecas
     # volume = LOONE_Q_Outputs['Storage'] * 1233.48  # acft to m3
 
     # Observed S77 S308 South
-    # TODO: Check this part - it has been changed a lot
     LOONE_Q_Outputs = pd.read_csv(os.path.join(workspace, f'LOONE_Q_Outputs_{ensemble_number:02}.csv' if forecast_mode else 'LOONE_Q_Outputs.csv'))
     LOONE_Q_Outputs['date'] = pd.to_datetime(LOONE_Q_Outputs['date'])
 
@@ -1062,7 +1057,7 @@ def LOONE_WQ(workspace: str, photo_period_filename: str = 'PhotoPeriod', forecas
                 on="date",
                 how="left",
             )
-        # TODO - should this always use the LOONE Q outputs? - Now it uses the for sim_type 3
+        # Loone Q outputs are used for loone planning and in forecast mode
         s77_outflow = outflows_observed['S77_Out']
         s308_outflow = outflows_observed['S308_Out']
         stage = storage_data['Stage_ft'].astype(float) * 0.3048  # m
@@ -1351,7 +1346,7 @@ def LOONE_WQ(workspace: str, photo_period_filename: str = 'PhotoPeriod', forecas
     else:
         # LOONE_Q_Outputs['date'] = LOONE_Q_Outputs['date'].dt.date
         merged = merged.merge(
-           combined_df[['date', 'S77_Q', 'S308_Q', 'TotRegSo']], on='date'
+           combined_df[['date', 'S77_Q', 'S308_Q', 'TotRegSo']], on='date' # these are all in cm/day
         )
 
     # Rename for clarity
@@ -1363,9 +1358,9 @@ def LOONE_WQ(workspace: str, photo_period_filename: str = 'PhotoPeriod', forecas
     # Compute q_o (outflows in m³/day)
     if not forecast_mode:
         merged['total_regional_outflow_south'] = merged[['S351_Out', 'S354_Out', 'S352_Out', 'L8_Out']].sum(axis=1) / 1233.48
-        merged['q_o'] = merged['S77_Out'] + merged['S308_Out'] + merged['total_regional_outflow_south'] * 1233.48
+        merged['q_o'] = merged['S77_Out'] + merged['S308_Out'] + merged['total_regional_outflow_south'] * 1233.48 # * 1233.48 to convert acft to m3
     else:
-        merged['q_o'] = merged['S77_Q'] + merged['S308_Q'] + merged["TotRegSo"] #TODO Get units correct on this
+        merged['q_o'] = merged['S77_Q'] + merged['S308_Q'] + merged["TotRegSo"] #these should be in cm/day already from the merge with combined_df
     # Prepare input lists
     q_i = merged['Inflows_cmd'].astype(float).tolist()
     q_o = merged['q_o'].astype(float).tolist()
@@ -1446,7 +1441,6 @@ def LOONE_WQ(workspace: str, photo_period_filename: str = 'PhotoPeriod', forecas
 
         return_list = list(variables_dict.values())
 
-        # TODO: Constit Loads needs ensemble members number
         for k, v in variables_dict.items():
             if forecast_mode:
                 file_name = f"{k}_forecast_ens{ensemble_number:02}"

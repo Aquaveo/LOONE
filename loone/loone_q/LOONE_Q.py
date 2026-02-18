@@ -2400,7 +2400,7 @@ def LOONE_Q(
         data=model_variables.Outlet1USREG, columns=["Outputs"]
     )
     df_saint_lucie = pd.DataFrame(data=model_variables.Outlet2USRG, columns=["Outputs"])
-    df_south = pd.DataFrame(data=model_variables.TotRegSo / 1.9835, columns=["Outputs"]) #TODO - why do we divide by 1.9835 here?
+    df_south = pd.DataFrame(data=model_variables.TotRegSo / 1.9835, columns=["Outputs"]) # convert to cfs
     df_out = pd.concat([df_stage, df_caloosahatchee, df_saint_lucie, df_south])
 
     return [lo_model, df_out.T.loc["Outputs"]]
