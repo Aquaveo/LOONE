@@ -84,7 +84,17 @@ class Data:
             self.ET_Vol = self._read_csv(config, "et_vol")
         if "Date" in self.SFWMM_W_dmd.columns:
             self.SFWMM_W_dmd = self.SFWMM_W_dmd.rename(columns={"Date": "date"})
-        self.SFWMM_W_dmd["date"] = pd.to_datetime(self.SFWMM_W_dmd["date"])
+        dates = pd.to_datetime(
+            self.SFWMM_W_dmd["date"],
+            format="%d-%b-%y",
+            errors="coerce"
+        )
+        fallback = pd.to_datetime(
+            self.SFWMM_W_dmd["date"],
+            format="mixed",
+            errors="coerce"
+        )
+        self.SFWMM_W_dmd["date"] = dates.fillna(fallback)
         self.C44_Runoff["date"] = pd.to_datetime(self.C44_Runoff["date"])
         self.C43RO_Daily["date"] = pd.to_datetime(self.C43RO_Daily["date"])
         self.C43RO["date"] = pd.to_datetime(self.C43RO["date"])

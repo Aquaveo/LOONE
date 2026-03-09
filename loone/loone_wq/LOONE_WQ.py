@@ -1057,6 +1057,12 @@ def LOONE_WQ(workspace: str, photo_period_filename: str = 'PhotoPeriod', forecas
                 on="date",
                 how="left",
             )
+        # Get overlapping date range
+        overlap_dates = LOONE_Q_Outputs.index.intersection(outflows_observed.index)
+
+        # Overwrite both DataFrames so they only contain the overlapping dates
+        LOONE_Q_Outputs = LOONE_Q_Outputs.loc[overlap_dates]
+        outflows_observed = outflows_observed.loc[overlap_dates]
         # Loone Q outputs are used for loone planning and in forecast mode
         s77_outflow = outflows_observed['S77_Out']
         s308_outflow = outflows_observed['S308_Out']
