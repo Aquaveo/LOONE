@@ -52,7 +52,7 @@ def Trib_HC(workspace: str, forecast: bool = False, ensemble: int = None, start_
         enddate = enddate_TC
     # Generate the Tributary Condition Dataframe.
     Trib_Cond_df = pd.DataFrame(
-        pd.date_range(start=startdate, end=enddate_TC, freq="W-Fri"), columns=["date"]
+        pd.date_range(start=startdate, end=enddate_TC, freq="W-FRI"), columns=["date"]
     )
     TC_Count = len(Trib_Cond_df.index)
 

@@ -43,7 +43,7 @@ class M_var:
             enddate_TC = enddate
             
         TC_Count = len(pd.date_range(
-            start=startdate, end=enddate_TC, freq="W-Fri"
+            start=startdate, end=enddate_TC, freq="W-FRI"
         ))
         self.RF_Cls = np.zeros(TC_Count)
         self.MainTrib_Cls = np.zeros(TC_Count)
