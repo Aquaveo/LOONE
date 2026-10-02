@@ -129,9 +129,9 @@ def LONINO_Seas_cls(LONINO_df_LONINO_Seas: float) -> int:
         classification = 4
     elif 1.8 <= LONINO_df_LONINO_Seas < 2.0001:
         classification = 3
-    elif 1.39 <= LONINO_df_LONINO_Seas < 1.8:
+    elif 1.09 <= LONINO_df_LONINO_Seas < 1.8:
         classification = 2
-    elif -10 <= LONINO_df_LONINO_Seas < 1.39:
+    elif -10 <= LONINO_df_LONINO_Seas < 1.09:
         classification = 1
     elif LONINO_df_LONINO_Seas == -999999:
         classification = 1
